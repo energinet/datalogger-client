@@ -1,0 +1,18 @@
+<!--  This is the first and very simple module for the  
+      LIABSG control daemon! Mikael Dich, Feb 2011
+-->
+<modules>
+     <module type="keyinput" name="midisinput" >
+       <input device="/dev/input/event0"/> 
+       <trigger text="Test knap" unit="" name="button" key_code="0x106" />
+     </module>
+
+     <module type="templatemod" name="midistemp" >
+     </module>
+
+     <module type="relay" name="midisrelay" verbose="0">
+       <output device="/sys/class/leds/relay_1/brightness"/>
+       <listen event="midisinput.button" />
+     </module>
+</modules>
+

@@ -1,0 +1,61 @@
+AC_INIT([Eeprom lib], [0.1],
+        [LIAB ApS <info@liab.dk>],
+        [aeeprom])
+AC_CONFIG_SRCDIR(src)
+AC_PREREQ(2.57)
+AM_INIT_AUTOMAKE
+
+AC_PROG_CC
+AC_STDC_HEADERS
+AC_PROG_INSTALL
+
+AC_PROG_LIBTOOL
+
+
+
+AC_PATH_PROGS(BASH, bash)
+
+AC_SUBST(DEPS_CFLAGS)
+AC_SUBST(DEPS_LIBS)
+
+AC_ARG_WITH(includes,
+  [AC_HELP_STRING(
+    [--with-includes=LIST],
+    [add additional include paths to eesd. LIST is a colon-separated list of include paths to add e.g. --with-includes=/some/mysql/include:/my/include])
+  ],
+  [ ac_addl_includes=`echo "$withval" | sed -e 's/:/ /g'` ;
+    for ainclude in $ac_addl_includes; do
+      if test x"$ac_build_addl_includes" = x ; then
+        ac_build_addl_includes="-I$ainclude"
+      else
+        ac_build_addl_includes="-I$ainclude $ac_build_addl_includes"
+      fi
+    done
+    CPPFLAGS="$CPPFLAGS $ac_build_addl_includes"
+  ])
+
+AC_ARG_WITH(libraries,
+  [AC_HELP_STRING(
+    [--with-libraries=LIST],
+    [add additional library paths eesd LIST is a colon-separated list of include paths to add e.g. --with-libraries=/some/mysql/libdir:/my/libs])
+  ],
+  [ ac_addl_libdirs=`echo "$withval" | sed -e 's/:/ /g'` ;
+    for alibdir in $ac_addl_libdirs; do
+      if test x"$ac_build_addl_libdirs" = x ; then
+        ac_build_addl_libdirs="-L$alibdir"
+      else
+        ac_build_addl_libdirs="-L$alibdir $ac_build_addl_libdirs"
+      fi
+    done 
+    LDFLAGS="$LDFLAGS $ac_build_addl_libdirs"
+  ])
+
+
+
+AC_CHECK_HEADER(pthread.h,, AC_MSG_ERROR(pthread.h not found try using --with-includes ))
+AC_CHECK_LIB(pthread, pthread_create,,AC_MSG_ERROR(pthread not found try using --with-libraries))
+
+AC_PATH_PROG(SVNVERSION, svnversion)
+
+AC_CONFIG_FILES([Makefile src/Makefile])
+AC_OUTPUT

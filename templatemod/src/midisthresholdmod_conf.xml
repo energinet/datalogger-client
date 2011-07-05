@@ -1,0 +1,16 @@
+<!-- config: MIDIS egen temperaturstyring for lampe med 
+             PT1000-føler i messingstang -->
+<modules>
+  <module type="readfile" name="pt1000"  verbose="0" flags="nolog">
+    <file path="/dev/adc00" name="temp1" text="Temperatur 1" unit="°C"
+	  interval="1" calc="eeprom:adc00_calc#poly1:a0.105b-273" multiread="10"
+	  max="100" min="-45" />
+  </module>
+  <module type="templatemod" name="midistempreg" >
+     <tempreg event="pt1000.temp1" name="heat" setpoint="32" hysteresis="3"/>
+  </module>
+  <module type="relay" name="midisrelay" verbose="0">
+    <output device="/sys/class/leds/relay_2/brightness"/>
+    <listen event="midistempreg.heat" />
+  </module>
+</modules>
