@@ -1,6 +1,6 @@
 /*
  * Energinet Datalogger
- * Copyright (C) 2009 - 2011 LIAB ApS <info@liab.dk>
+ * Copyright (C) 2009 - 2012 LIAB ApS <info@liab.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -24,55 +24,62 @@
 #include "module_event.h"
 #include "uni_data.h"
 #include "module_util.h"
+#include "module_tick.h"
 
 /**
  * @defgroup module_base_grp base module
  * @{
  */
 
+
 extern struct xml_tag base_xml_tags[];
 struct module_event;
+struct modules;
 /**
  * Module base object 
  * Base for all modules
  */
 struct module_base {
-	/**
-	 * Module name */
-	char *name;
-	/**
-	 * Module type
-	 * @note A pointer to the module type object */
-	struct module_type *type;
-	/**
-	 * Verbose flag
-	 * @note 0="no output" 1="verbose" */
-	int verbose;
-	/**
-	 * Event flags
-	 * @todo Add reference to flags */
-	unsigned long flags;
-	/**
-	 * list of events
-	 * @note events available for this module */
-	struct event_type *event_types;
-	/**
-	 * list of handlers open to other modules */
-	struct event_handler *event_handlers;
-	/**
-	 * The nex module in the list */
-	struct module_base *next;
-	/**
-	 * The first module in the list */
-	struct module_base *first;
-	/**
-	 * run flag
-	 * @note For loop thread 0=stop 1=run */
-	int run;
-	/**
-	 * pthread object for the loop thread */
-	pthread_t loop_thread;
+    /**
+     * Module name */
+    char *name;     
+    /**
+     * Module type
+     * @note A pointer to the module type object */
+    struct module_type *type;
+    /**
+     * Verbose flag
+     * @note 0="no output" 1="verbose" */
+    int verbose;
+    /**
+     * Event flags
+     * @todo Add reference to flags */
+    unsigned long flags;
+    /**
+     * list of events
+     * @note events available for this module */
+    struct event_type *event_types; 
+    /**
+     * list of handlers open to other modules */
+    struct event_handler *event_handlers; 
+    /**
+     * The nex module in the list */
+    struct module_base *next; 
+    /**
+     * The first module in the list */
+    struct module_base *first; 
+    /**
+     * run flag 
+     * @note For loop thread 0=stop 1=run */  
+    int run;
+    /**
+     * pthread object for the loop thread */  
+    pthread_t loop_thread;   
+    /**
+     * A pointer to the tick master object */
+    struct module_tick_master *tick_master;
 };
+
 
 /**
  * Create a new module 
@@ -81,8 +88,7 @@ struct module_base {
  * @return a pointer to the new mosule if created of NULL if fault
  * @private
  */
-struct module_base* module_base_create(struct module_type* type,
-		const char *name, const char** attr);
+struct module_base* module_base_create(struct modules *modules,struct module_type* type, const char *name, const char** attr);
 
 /**
  * Add a module to the module list
@@ -90,8 +96,8 @@ struct module_base* module_base_create(struct module_type* type,
  * @param new is a pointer the new module
  * @private
  */
-struct module_base* module_base_list_add(struct module_base* first,
-		struct module_base* new);
+struct module_base* module_base_list_add(struct module_base* first, struct module_base* new);
+
 
 /**
  * Delete a base module and list
@@ -100,14 +106,14 @@ struct module_base* module_base_list_add(struct module_base* first,
  */
 void module_base_delete(struct module_base* module);
 
+
 /**
  * Remove a module from the module list
  * @param first The first module in the list
  * @param rem The module to be removed
  * @private
  */
-struct module_base* module_base_list_remove(struct module_base* first,
-		struct module_base* rem);
+struct module_base* module_base_list_remove(struct module_base* first, struct module_base* rem);
 
 /**
  * Get a module by unique name 
@@ -115,8 +121,13 @@ struct module_base* module_base_list_remove(struct module_base* first,
  * @param name is the unique name 
  * @return a pointer to the module if found or NULL if fault
  */
-struct module_base* module_base_get_by_name(struct module_base* first,
-		const char *name);
+struct module_base* module_base_get_by_name(struct module_base* first,const char *name);
+
+
+/**
+ * Subscribe to a single event
+ */
+int module_base_subscribe(struct module_base* subscriber, struct event_type *event, struct event_handler *handler);
 
 /**
  * Subscribe to an event 
@@ -131,9 +142,9 @@ struct module_base* module_base_get_by_name(struct module_base* first,
  * @return ?
  * @todo Check return value  
  */
-int module_base_subscribe_event(struct module_base* subscriber,
-		struct module_base* module_list, const char *name, unsigned long mask,
-		struct event_handler *handler, const char **attr);
+int module_base_subscribe_event(struct module_base* subscriber, struct module_base* module_list, 
+				const char *name, unsigned long mask,
+                                struct event_handler *handler, const char **attr);
 
 /**
  * Send an event to all listening handlers
@@ -143,6 +154,17 @@ int module_base_subscribe_event(struct module_base* subscriber,
  */
 int module_base_send_event(struct module_event *event);
 
+
+/**
+ * Get an event of the name, <ename>
+ * @param module_list The list of all modules
+ * @param name The search name
+ * @param mask The search event flag mask
+ * @return the first match or NULL of not found 
+ */
+struct event_type *module_base_get_event(struct module_base* module_list,
+					 const char *name, unsigned long mask);
+
 /**
  * Read all events of \c name
  * @param module_list The list of all modules
@@ -150,12 +172,14 @@ int module_base_send_event(struct module_event *event);
  * @param mask The search event flag mask
  * @return a list of events or NULL if not found or error
  */
-struct module_event *module_base_read_all(struct module_base* module_list,
-		const char *name, unsigned long mask);
+struct module_event *module_base_read_all(struct module_base* module_list, 
+					  const char *name, unsigned long mask );
+
 
 /**
  * @} 
  */
+
 
 /**
  * @defgroup load_list Module load list
@@ -164,10 +188,10 @@ struct module_event *module_base_read_all(struct module_base* module_list,
 /**
  * Load or unload list (MNU!)
  */
-struct load_list {
-	char *name;
-	int unload;
-	struct load_list *next;
+struct load_list{
+    char *name;
+    int unload;
+    struct load_list *next;
 };
 
 /**
@@ -179,18 +203,18 @@ struct load_list *load_list_add(struct load_list *list, char const *name);
  * Check a name from in the load list
  * @return 0 no load, 1 do load
  */
-int load_list_check(struct load_list *list, char const *name,
-		char const *xmlarg);
+int load_list_check(struct load_list *list, char const *name, char const *xmlarg);
 
 /**
  * @} 
  */
 
-struct modules {
-	struct module_type *types;
-	struct module_base *list;
-	struct load_list *loadlist;
-	int verbose;
+struct modules{
+    struct module_type *types;
+    struct module_base *list;
+    struct load_list *loadlist;
+    struct module_tick_master *tick_master;
+    int verbose;
 };
 
 #endif /* MODULE_BASE_H_ */

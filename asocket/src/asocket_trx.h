@@ -1,6 +1,6 @@
 /*
  * Energinet Datalogger
- * Copyright (C) 2009 - 2011 LIAB ApS <info@liab.dk>
+ * Copyright (C) 2009 - 2012 LIAB ApS <info@liab.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -24,27 +24,28 @@
 #define SOCKET_TC_BUF_LEN 1024*20
 
 int asocket_cmd_stub(ASOCKET_FUNC_PARAM);
-struct asocket_cmd *asocket_cmd_match(struct asocket_cmd *cmds,
-		const char *name);
-int asocket_cmd_run(struct asocket_con* sk_con, struct asocket_cmd *cmd,
-		struct skcmd *msg);
+struct asocket_cmd *asocket_cmd_match(struct asocket_cmd *cmds, const char *name);
+int asocket_cmd_run(struct asocket_con* sk_con, struct asocket_cmd *cmd, struct skcmd *msg);
 
-struct asocket_con* asocket_con_create(int skfd, struct asocket_cmd *cmds,
-		void* appdata, int dbglev);
+
+struct asocket_con* asocket_con_create(int skfd, struct asocket_cmd *cmds , void* appdata , int dbglev);
 void asocket_con_remove(struct asocket_con* sk_con);
 
-int asocket_con_snd(struct asocket_con* sk_con, struct skcmd *msg);
-int asocket_con_snd_vp(struct asocket_con* sk_con, const char *id,
-		int param_cnt, ...);
 
-int asocket_con_snd_nack(struct asocket_con* sk_con, const char *errmsg);
+int asocket_con_snd(struct asocket_con* sk_con, struct skcmd *msg);
+int asocket_con_snd_vp(struct asocket_con* sk_con, const char *id , int param_cnt,  ...);
+
+int asocket_con_snd_nack(struct asocket_con* sk_con,const char *errmsg);
+
 
 int asocket_con_rcv(struct asocket_con* sk_con, struct skcmd **rx_msg);
 
+
 int asocket_con_rcvr(struct asocket_con* sk_con);
 
-int asocket_con_trancive(struct asocket_con* sk_con, struct skcmd* tx_msg,
-		struct skcmd** rx_msg);
+int asocket_con_trancive(struct asocket_con* sk_con, struct skcmd* tx_msg, struct skcmd** rx_msg);
+
+
 
 #endif /* ASOCKET_H_ */
 

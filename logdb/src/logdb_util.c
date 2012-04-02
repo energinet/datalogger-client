@@ -1,6 +1,6 @@
 /*
  * Energinet Datalogger
- * Copyright (C) 2009 - 2011 LIAB ApS <info@liab.dk>
+ * Copyright (C) 2009 - 2012 LIAB ApS <info@liab.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -41,13 +41,14 @@ const char *HelpText = "logdbutil: util for liblogdb... \n"
 " -t <posix time> : time\n"
 " -v <value>      : value \n"
 " \n"
+" -x              : Export data \n"
 " -d <level>      : Set debug level \n"
 " -h              : Help (this text)\n"
 "Copyright (C) LIAB ApS - CRA, June 2010\n"
 "";
 
 int list_event_log(struct logdb *db) {
-	sqlite3_stmt * ppStmt = logdb_evt_list_prep(db, -1, 0, 0);
+	sqlite3_stmt * ppStmt = logdb_evt_list_prep(db, NULL, 0, 0);
 	int retval, eid;
 	time_t time;
 	char *value;
@@ -109,6 +110,38 @@ int list_event_types(struct logdb *db) {
 	return 0;
 }
 
+int logdb_util_export(struct logdb *db, const char *eids)
+{
+	   sqlite3_stmt * ppStmtLog ;
+      int retval;
+	  int t_end    = 1319712143;//time(NULL);
+	  int t_begin  = 1319625743;//t_end - (24*3600);
+	  int count = 0;
+      ppStmtLog  = logdb_evt_list_prep(db, eids,t_begin, t_end);
+
+	  fprintf(stderr, "begin %d --> end %d\n", t_begin, t_end);
+
+      while( 1 ){
+		  int eid;
+          char etimestr[32];
+          time_t etime = 0;
+          const char *eval;
+
+          retval = logdb_evt_list_next(ppStmtLog, &eid, &etime, &eval);
+		  if(retval != 1)
+                break;
+
+		  count++;
+      }
+
+	  fprintf(stderr, "count %d \n", count);
+
+      logdb_list_end(ppStmtLog);
+
+
+      return 0;
+}
+
 int main(int narg, char *argp[]) {
 	int optc;
 	int debug_level = 0;
@@ -137,8 +170,10 @@ int main(int narg, char *argp[]) {
 	etime = tv.tv_sec;
 	int retval = 0;
 	int last_write = 0;
+	int do_export = 0;
+	char *export_eids = NULL;
 
-	while ((optc = getopt(narg, argp, "f:le:n:N:Tt:v:ag:s:d:imS:R:w::b::rh"))
+	while ((optc = getopt(narg, argp, "f:le:n:N:Tt:v:ag:s:d:imS:R:w::b::rx::h"))
 			> 0) {
 		switch (optc) {
 		case 'f': // set file path
@@ -206,6 +241,11 @@ int main(int narg, char *argp[]) {
 		case 'r':
 			removeoldetype = 1;
 			break;
+		  case 'x': //Export data
+			do_export = 1;
+			if(optarg)
+				export_eids = strdup(optarg);
+			break;
 		case 'h': // Help
 		default:
 			fprintf(stderr, "%s", HelpText);
@@ -216,6 +256,8 @@ int main(int narg, char *argp[]) {
 
 	if (filepath)
 		db = logdb_open(filepath, 15000, debug_level);
+
+	logdb_lock(db);
 
 	if (!db) {
 		fprintf(stderr, "ERR: No DB loaded\n");
@@ -229,6 +271,11 @@ int main(int narg, char *argp[]) {
 			goto out;
 		}
 
+	}
+
+	if(do_export){
+		char eids[1024];
+		logdb_util_export(db,logdb_etype_get_eids(db, export_eids, eids, sizeof(eids) ));
 	}
 
 	if (get_write_time || get_buffer_time) {
@@ -296,8 +343,16 @@ int main(int narg, char *argp[]) {
 
 	out:
 
+	logdb_unlock(db);
+
+	if (maintenance)
+		logdb_evt_vacuum(db);
+
 	if (db)
 		logdb_close(db);
+	
+	
+
 
 	return retval;
 

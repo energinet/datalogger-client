@@ -1,6 +1,6 @@
 /*
  * Energinet Datalogger
- * Copyright (C) 2009 - 2011 LIAB ApS <info@liab.dk>
+ * Copyright (C) 2009 - 2012 LIAB ApS <info@liab.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,19 +19,23 @@
 #ifndef AEEPROM_H_
 #define AEEPROM_H_
 
+
 #define DEFAULT_OFFSET (1024*16)
 #define DEFAULT_EE_FILE "/sys/bus/i2c/devices/0-0050/eeprom"
 //#define DEFAULT_DB_FILE "eeprom"
 
-struct aeeprom {
-	char *path;
-	int offset;
+struct aeeprom{
+    char *path;
+    int offset;
 };
 
 char* aeeprom_get_entry(const char *name);
 int aeeprom_set_entry(const char *name, const char *value);
 
+
 char* aeeprom_dump(void);
 
+
 #endif /* AEEPROM_H_ */
+
 

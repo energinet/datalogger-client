@@ -4,12 +4,15 @@ AC_INIT([Eeprom lib], [0.1],
 AC_CONFIG_SRCDIR(src)
 AC_PREREQ(2.57)
 AM_INIT_AUTOMAKE
+#AC_CONFIG_HEADERS(include/config.h)
 
 AC_PROG_CC
 AC_STDC_HEADERS
 AC_PROG_INSTALL
+dnl AC_CONFIG_MACRO_DIR([m4]) dnl CRA 09/02/04
+dnl AC_DISABLE_SHARED         dnl CRA 09/02/04
 
-AC_PROG_LIBTOOL
+AC_PROG_LIBTOOL           dnl CRA 09/02/05
 
 
 
@@ -18,6 +21,7 @@ AC_PATH_PROGS(BASH, bash)
 AC_SUBST(DEPS_CFLAGS)
 AC_SUBST(DEPS_LIBS)
 
+dnl Modules...'nuff said.
 AC_ARG_WITH(includes,
   [AC_HELP_STRING(
     [--with-includes=LIST],
@@ -55,7 +59,9 @@ AC_ARG_WITH(libraries,
 AC_CHECK_HEADER(pthread.h,, AC_MSG_ERROR(pthread.h not found try using --with-includes ))
 AC_CHECK_LIB(pthread, pthread_create,,AC_MSG_ERROR(pthread not found try using --with-libraries))
 
+dnl Check if svnversion is avaliable to get the rev number
 AC_PATH_PROG(SVNVERSION, svnversion)
+
 
 AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT

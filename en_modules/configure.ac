@@ -4,12 +4,15 @@ AC_INIT([SQLite Module for Control Daemon], [0.1],
 AC_CONFIG_SRCDIR(src/calibflow.c)
 AC_PREREQ(2.57)
 AM_INIT_AUTOMAKE
+#AC_CONFIG_HEADERS(include/config.h)
 
 AC_PROG_CC
 AC_STDC_HEADERS
 AC_PROG_INSTALL
+dnl AC_CONFIG_MACRO_DIR([m4]) dnl CRA 09/02/04
+dnl AC_DISABLE_SHARED         dnl CRA 09/02/04
 
-AC_PROG_LIBTOOL
+AC_PROG_LIBTOOL           dnl CRA 09/02/05
 
 
 
@@ -18,6 +21,7 @@ AC_PATH_PROGS(BASH, bash)
 AC_SUBST(DEPS_CFLAGS)
 AC_SUBST(DEPS_LIBS)
 
+dnl Modules...'nuff said.
 AC_ARG_WITH(includes,
   [AC_HELP_STRING(
     [--with-includes=LIST],
@@ -63,6 +67,13 @@ AC_CHECK_LIB(expat, XML_SetElementHandler,,AC_MSG_ERROR(expat not found try usin
 
 AC_CHECK_HEADER(dlfcn.h,, AC_MSG_ERROR(dlfcn.h not found try using --with-includes ))
 AC_CHECK_LIB(dl, dlsym,,AC_MSG_ERROR(dl not found try using --with-libraries))
+
+#AC_CHECK_HEADER(sqlite3.h,, AC_MSG_ERROR(sqlite3.h not found try using --with-includes ))
+#AC_CHECK_LIB(sqlite3, sqlite3_open,,AC_MSG_ERROR(sqlite3 not found try using --with-libraries))
+
+#AC_CHECK_HEADER(logdb.h,, AC_MSG_ERROR(logdb.h not found try using --with-includes ))
+#AC_CHECK_LIB(logdb, logdb_open,,AC_MSG_ERROR(logdb not found try using --with-libraries))
+
 
 dnl Check if svnversion is avaliable to get the rev number
 AC_PATH_PROG(SVNVERSION, svnversion)

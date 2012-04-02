@@ -4,12 +4,15 @@ AC_INIT([Control Daemon], [0.1],
 AC_CONFIG_SRCDIR(src/contdaem.c)
 AC_PREREQ(2.57)
 AM_INIT_AUTOMAKE
+#AC_CONFIG_HEADERS(include/config.h)
 
 AC_PROG_CC
 AC_STDC_HEADERS
 AC_PROG_INSTALL
+dnl AC_CONFIG_MACRO_DIR([m4]) dnl CRA 09/02/04
+dnl AC_DISABLE_SHARED         dnl CRA 09/02/04
 
-AC_PROG_LIBTOOL
+AC_PROG_LIBTOOL           dnl CRA 09/02/05
 
 
 
@@ -18,6 +21,7 @@ AC_PATH_PROGS(BASH, bash)
 AC_SUBST(DEPS_CFLAGS)
 AC_SUBST(DEPS_LIBS)
 
+dnl Modules...'nuff said.
 AC_ARG_WITH(includes,
   [AC_HELP_STRING(
     [--with-includes=LIST],
@@ -61,11 +65,21 @@ AC_CHECK_HEADER(expat.h,, AC_MSG_ERROR(expat.h not found try using --with-includ
 AC_CHECK_LIB(expat, XML_SetElementHandler,,AC_MSG_ERROR(expat not found try using --with-libraries))
 
 AC_CHECK_HEADER(xml_parser.h,, AC_MSG_ERROR(xml_parser.h not found try using --with-includes ))
+
 AC_CHECK_LIB(xmlpar, parse_xml_file,,AC_MSG_ERROR(xmlpar not found try using --with-libraries))
+
+
+#AC_CHECK_HEADER(xml_serialize.h,, AC_MSG_ERROR(xml_serialize.h not found try using --with-includes ))
+#AC_CHECK_LIB(xmlpar, xml_item_create,,AC_MSG_ERROR(xmlpar (serialize) not found try using --with-libraries))
 
 AC_CHECK_HEADER(dlfcn.h,, AC_MSG_ERROR(dlfcn.h not found try using --with-includes ))
 AC_CHECK_LIB(dl, dlsym,,AC_MSG_ERROR(dl not found try using --with-libraries)) 
 
+AC_CHECK_HEADER(time.h,, AC_MSG_ERROR(time.h not found try using --with-includes ))
+AC_CHECK_LIB(rt, clock_gettime,,AC_MSG_ERROR(rt not found try using --with-libraries)) 
+
+
+dnl Check if svnversion is avaliable to get the rev number
 AC_PATH_PROG(SVNVERSION, svnversion)
 
 plugindir=/usr/share/control-daemon/plugins
@@ -114,6 +128,9 @@ DX_XML_FEATURE(OFF)
 DX_PDF_FEATURE(ON)
 DX_PS_FEATURE(OFF)
 DX_INIT_DOXYGEN($PACKAGE_NAME, doxygen.cfg,${doxdir} )
+
+
+
 
 AC_CONFIG_FILES([Makefile src/Makefile src/modules/Makefile])
 AC_OUTPUT

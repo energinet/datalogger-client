@@ -1,6 +1,6 @@
 /*
  * Energinet Datalogger
- * Copyright (C) 2009 - 2011 LIAB ApS <info@liab.dk>
+ * Copyright (C) 2009 - 2012 LIAB ApS <info@liab.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -39,6 +39,7 @@
  */
 int module_type_load_file(const char *path, struct module_type **types);
 
+
 /**
  * Load all contdaem module types in a directory
  * @param dir The directory to load 
@@ -46,6 +47,7 @@ int module_type_load_file(const char *path, struct module_type **types);
  * @return zero on success
  */
 int module_type_load_all(const char *dir, struct module_type **types);
+
 
 /**
  * Unload all module types in the list
@@ -56,5 +58,7 @@ void module_type_unload_file(struct module_type *types);
 /**
  *@} 
  */
+
+
 
 #endif /* MODULE_LOADER */

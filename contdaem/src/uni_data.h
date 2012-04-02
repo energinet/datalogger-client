@@ -1,6 +1,6 @@
 /*
  * Energinet Datalogger
- * Copyright (C) 2009 - 2011 LIAB ApS <info@liab.dk>
+ * Copyright (C) 2009 - 2012 LIAB ApS <info@liab.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -15,14 +15,15 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-
+ 
 #ifndef UNI_DATA_H_
 #define UNI_DATA_H_
 
 #include <sys/time.h>
-#include "contdaem.h"
-#include "module_util.h"
+//#include "contdaem.h"
+//#include "module_util.h"
 
+struct ftolunit *ftlunit;
 /**
  * @defgroup uni_data_grp Universal data object
  * @{
@@ -30,55 +31,56 @@
  */
 
 /**
- * Data types
- * @enum
- */
-enum data_types {
-	/**
-	 * Integer data type */
-	DATA_INT,
-	/**
-	 * Float data type
-	 * @note uni_data::data is a pointer to a float value*/
-	DATA_FLOAT,
-	/**
-	 * Flow data type (float and time)
-	 * @note uni_data::data is a pointer to a float value*/
-	DATA_FLOW,
-	/**
-	 * State data type (integer state and text)
-	 * @note uni_data::data may be a pointer to a text buffer */
-	DATA_STATE,
-	/**
-	 * Text data type
-	 * @note uni_data::data is a pointer to a text buffer */
-	DATA_TEXT,
-	/**
-	 * Fault data type (integer fault state and text)
-	 * @note uni_data::data may be a pointer to a text buffer */
-	DATA_FAULT,
+* Data types
+* @enum 
+*/
+enum data_types{
+    /**
+     * Integer data type */
+    DATA_INT, 
+    /**
+     * Float data type 
+     * @note uni_data::data is a pointer to a float value*/
+    DATA_FLOAT,
+    /**
+     * Flow data type (float and time) 
+     * @note uni_data::data is a pointer to a float value*/
+    DATA_FLOW, 
+    /**
+     * State data type (integer state and text) 
+     * @note uni_data::data may be a pointer to a text buffer */
+    DATA_STATE,
+    /**
+     * Text data type 
+     * @note uni_data::data is a pointer to a text buffer */
+    DATA_TEXT, 
+    /**
+     * Fault data type (integer fault state and text) 
+     * @note uni_data::data may be a pointer to a text buffer */
+    DATA_FAULT,
 };
+
 
 /**
  * Universal data struct 
  */
-struct uni_data {
-	/**
-	 * Datatype */
-	enum data_types type;
-	/**
-	 * Integer value (if available) */
-	int value;
-	/**
-	 * Milliseconds since last measurement */
-	unsigned long mtime;
-	/**
-	 * Pointer to type data (text og float) */
-	void *data;
-	/**
-	 * Placed in heap if true
-	 * @private */
-	int inheap;
+struct uni_data{
+    /**
+     * Datatype */
+    enum data_types type; 
+    /**
+     * Integer value (if available) */
+    int value; 
+    /**
+     * Milliseconds since last measurement */
+    unsigned long mtime; 
+    /**
+     * Pointer to type data (text og float) */
+    void *data;
+    /**
+     * Placed in heap if true 
+     * @private */
+    int inheap;
 };
 
 /**
@@ -91,8 +93,10 @@ struct uni_data {
  * @note use other conmstructers
  * @return a pointer to the object
  */
-struct uni_data *uni_data_create(enum data_types data_type,
-		unsigned long value, void* data, unsigned long ms);
+struct uni_data *uni_data_create(enum data_types data_type, 
+				 unsigned long value, void* data, 
+				 unsigned long ms);
+
 
 /**
  * Copy a universal data object 
@@ -100,6 +104,7 @@ struct uni_data *uni_data_create(enum data_types data_type,
  * @return a pointer to the copy
  */
 struct uni_data *uni_data_copy(struct uni_data *source);
+
 
 /**
  * Creates an integer datatype 
@@ -138,20 +143,22 @@ struct uni_data *uni_data_create_text(const char *text);
  */
 struct uni_data *uni_data_create_state(unsigned long state, const char *text);
 
+
 /**
  * Creates a state datatype 
  * @param type A the output datatype
  * @param str The input string
  * @return a pointer to the data object
  */
-struct uni_data
-*uni_data_create_from_str(enum data_types type, const char *str);
+struct uni_data *uni_data_create_from_str(enum data_types type, const char *str);
 
 /**
  * Delete a data object 
  * @param rem The data object to delete
  */
 void uni_data_delete(struct uni_data *rem);
+
+
 
 /**
  * Print the value of a data object to a string
@@ -172,8 +179,7 @@ int uni_data_get_txt_value(struct uni_data *data, char* buffer, int max_size);
  * @return The length of the printed string
  * @todo Make consistend with uni_data_get_fvalue
  */
-int uni_data_get_txt_fvalue(struct uni_data *data, char* buffer, int max_size,
-		struct ftolunit *ftlunit);
+int uni_data_get_txt_fvalue(struct uni_data *data, char* buffer, int max_size, struct ftolunit *ftlunit);
 
 /**
  * Return the float value of a data object
@@ -191,6 +197,15 @@ float uni_data_get_fvalue(struct uni_data *data);
  */
 float uni_data_get_value(struct uni_data *data);
 
+
+/**
+ * Return the internal text string 
+ * @param data The dataobject 
+ * @return The string or NULL is no string
+ * @note Only the text and state may contain a string;
+ */
+const char *uni_data_get_strptr(struct uni_data *data);
+
 /**
  * Get enumerated datatype 
  * @param str datatype string
@@ -205,8 +220,10 @@ enum data_types uni_data_type_str(const char *str);
  */
 const char * uni_data_str_type(enum data_types type);
 
+
 /**
  * @}
  */
+
 
 #endif /* UNI_DATA */

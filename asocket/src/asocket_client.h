@@ -1,6 +1,6 @@
 /*
  * Energinet Datalogger
- * Copyright (C) 2009 - 2011 LIAB ApS <info@liab.dk>
+ * Copyright (C) 2009 - 2012 LIAB ApS <info@liab.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -21,7 +21,23 @@
 
 #include "asocket.h"
 
+
+/* struct asocket_client { */
+/*     struct sockaddr *skaddr; */
+/*     int socket_fd; */
+/* }; */
+//struct asocket_con* sk_con;
+
 struct asocket_con* asocket_clt_connect(struct sockaddr *skaddr);
+
+/* int asckt_clt_trancive(struct asocket_client *client,  */
+/*                        char *tx_buf, int tx_len,  */
+/*                        char *rx_buf, int rx_maxlen); */
+
+/* int asckt_clt_run(struct asocket_client *client,  */
+/*                   const char *cmd, const char *payload, */
+/*                   char *rx_buf, int rx_maxlen); */
+
 
 int asocket_clt_disconnect(struct asocket_con* sk_con);
 

@@ -1,6 +1,6 @@
 /*
  * Energinet Datalogger
- * Copyright (C) 2009 - 2011 LIAB ApS <info@liab.dk>
+ * Copyright (C) 2009 - 2012 LIAB ApS <info@liab.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -29,6 +29,9 @@
 #include <poll.h>
 #include <sys/time.h>
 
+
+
+
 /**
  * @ingroup modules 
  * @{
@@ -39,506 +42,649 @@
  * @{
  */
 
+
 #define DEFAULT_EMODE EMODE_ALWAYS
 #define DEFAULT_IMODE IMODE_ASCII
 #define DEFAULT_INTERVAL (60)  /* sec */
 #define DEFAULT_UNIT "l"
 
-enum {
-	EMODE_ALWAYS, EMODE_ONCHANG,
+pthread_mutex_t rdfile_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+enum{
+    EMODE_ALWAYS,
+    EMODE_ONCHANG,
 };
 
-enum {
-	IMODE_ASCII, IMODE_INT, IMODE_SHORT, IMODE_CHAR,
+enum{
+    IMODE_ASCII,
+    IMODE_INT,
+    IMODE_SHORT,
+    IMODE_CHAR,
 };
 
-struct rdfile {
-	char *filepath;
-	int interval;
-	int emode;
-	int imode;
-	int last_value;
-	struct module_calc *calc;
-	int mread_cnt;
-	float bound_max;
-	float bound_min;
-	float bound_zero;
-	int fault_state;
-	struct timeval rdtime;
-	struct event_type *event_type;
-	struct rdfile *next;
+struct rdfile{
+//    int fd;
+    char *filepath;
+    int interval;
+    int emode;
+    int imode;
+    int last_value;
+    struct module_calc *calc;
+    int mread_cnt;
+    float bound_max;
+    float bound_min;
+    float bound_zero;
+    int fault_state;
+    struct timeval rdtime;
+    struct event_type *event_type;
+    struct rdfile *next;
 };
 
-struct module_object {
-	struct module_base base;
-	struct rdfile *rdfiles;
-	struct event_type *fault_event;
-	int fault_state;
+struct module_object{
+    struct module_base base;
+    struct rdfile *rdfiles;
+    struct event_type *fault_event; 
+    int write_enabled;
+    int fault_state;
+    struct module_tick *tick;
 };
 
-unsigned long timeval_diff(struct timeval *now, struct timeval *prev) {
-	int sec = now->tv_sec - prev->tv_sec;
-	int usec = now->tv_usec - prev->tv_usec;
 
-	unsigned long diff;
+unsigned long timeval_diff(struct timeval *now, struct timeval *prev)
+{
+    int sec = now->tv_sec - prev->tv_sec;
+    int usec = now->tv_usec - prev->tv_usec;
 
-	if (prev->tv_sec == 0)
-		return 0x7ffffff;
+    unsigned long diff;
 
-	if (sec < 0) {
-		PRINT_ERR("does not support now < prev");
-		sec = 0;
-	}
+    if(prev->tv_sec == 0)
+        return 0x7ffffff;
 
-	diff = sec * 1000;
-	diff += usec / 1000;
+    if( sec < 0 ) {
+        PRINT_ERR("does not support now < prev");
+        sec = 0;
+    }
 
-	return diff;
+    diff = sec*1000;
+    diff += usec/1000;
+
+    return diff;
+    
+        
+}
+
+struct rdfile *rdfile_create(const char *path, int interval, const char *emode, const char *imode)
+{
+    struct rdfile *new = NULL;
+    int fd;
+    char emodes[][32] = { "always", "change" , ""};
+    char imodes[][32] = { "ascii", "int", "short", "char"};
+
+    if(!path){
+        PRINT_ERR("no path");
+        return NULL;
+    }
+    
+    fd = open(path, O_RDONLY);
+
+    if(fd < 0){
+        PRINT_ERR("error opening file %s: %s", path, strerror(errno));
+        return NULL;
+    }
+    
+    close(fd);
+
+    new = malloc(sizeof(*new));
+
+    if(!new){
+        PRINT_ERR("malloc failed");
+        return NULL;
+    }
+
+    memset(new, 0, sizeof(*new));
+        
+//    new->fd = fd;
+    new->interval = interval;
+    new->filepath = strdup(path);
+
+    new->emode = DEFAULT_EMODE;
+    if(emode){
+        int i = 0;
+        while(emodes[i][0] != '\0'){
+            if(strcmp(emodes[i], emode) == 0){
+                new->emode = i;
+                break;
+            }
+        }
+
+        if(emodes[i][0] == '\0'){
+            PRINT_ERR("mode not supported");
+            goto err_out;
+        }
+    }
+
+    new->imode = DEFAULT_IMODE;
+    
+    if(imode){
+        int i = 0;
+        while(imodes[i][0] != '\0'){
+            if(strcmp(imodes[i], imode) == 0){
+                new->imode = i;
+                break;
+            }
+        }
+
+        if(imodes[i][0] == '\0'){
+            PRINT_ERR("imode not supported");
+            goto err_out;
+        }
+    }
+    
+    return new;
+
+  err_out:
+    
+    //   close(new->fd);
+    
+    free(new);
+
+    return NULL;
 
 }
 
-struct rdfile *rdfile_create(const char *path, int interval, const char *emode,
-		const char *imode) {
-	struct rdfile *new = NULL;
-	int fd;
-	char emodes[][32] = { "always", "change", "" };
-	char imodes[][32] = { "ascii", "int", "short", "char" };
+struct rdfile *rdfile_add(struct rdfile *first, struct rdfile *new)
+{
+    struct rdfile *ptr = first;
+    
+    if(!first)
+        return new;
+    
+    while(ptr->next){
+        ptr = ptr->next;
+    }
+    
+    ptr->next = new;
 
-	if (!path) {
-		PRINT_ERR("no path");
-		return NULL;
-	}
-
-	fd = open(path, O_RDONLY);
-
-	if (fd < 0) {
-		PRINT_ERR("error opening file %s: %s", path, strerror(errno));
-		return NULL;
-	}
-
-	close(fd);
-
-	new = malloc(sizeof(*new));
-
-	if (!new) {
-		PRINT_ERR("malloc failed");
-		return NULL;
-	}
-
-	memset(new, 0, sizeof(*new));
-
-	new->interval = interval;
-	new->filepath = strdup(path);
-
-	new->emode = DEFAULT_EMODE;
-	if (emode) {
-		int i = 0;
-		while (emodes[i][0] != '\0') {
-			if (strcmp(emodes[i], emode) == 0) {
-				new->emode = i;
-				break;
-			}
-		}
-
-		if (emodes[i][0] == '\0') {
-			PRINT_ERR("mode not supported");
-			goto err_out;
-		}
-	}
-
-	new->imode = DEFAULT_IMODE;
-
-	if (imode) {
-		int i = 0;
-		while (imodes[i][0] != '\0') {
-			if (strcmp(imodes[i], imode) == 0) {
-				new->imode = i;
-				break;
-			}
-		}
-
-		if (imodes[i][0] == '\0') {
-			PRINT_ERR("imode not supported");
-			goto err_out;
-		}
-	}
-
-	return new;
-
-	err_out:
-
-	free(new);
-
-	return NULL;
-
+    return first;
 }
 
-struct rdfile *rdfile_add(struct rdfile *first, struct rdfile *new) {
-	struct rdfile *ptr = first;
+void rdfile_delete(struct rdfile *rdfile)
+{
+    if(rdfile->next)
+        rdfile_delete(rdfile->next);
 
-	if (!first)
-		return new;
+    free(rdfile);
 
-	while (ptr->next) {
-		ptr = ptr->next;
-	}
-
-	ptr->next = new;
-
-	return first;
-}
-
-void rdfile_delete(struct rdfile *rdfile) {
-	if (rdfile->next)
-		rdfile_delete(rdfile->next);
-
-	free(rdfile);
-
+    
+    
 }
 
 float rdfile_readfile(struct rdfile *rdfile);
 
-struct module_event *rdfile_eread(struct event_type *event) {
-	struct rdfile *rdfile = (struct rdfile *) event->objdata;
+ struct module_event *rdfile_eread(struct event_type *event)
+ {
+     struct rdfile *rdfile = (struct rdfile *)event->objdata;
 
-	float value = rdfile_readfile(rdfile);
-	return module_event_create(event, uni_data_create_float(value), NULL);
+     float value = rdfile_readfile(rdfile);
+     return module_event_create(event, uni_data_create_float(value), NULL);
+ }
+
+int rdfile_writefile(struct rdfile *rdfile, struct uni_data *data);
+
+/**
+ * Receive handler for @ref led_obj 
+ * @memberof led_obj
+ * @note See @ref EVENT_HANDLER_PAR for paramaters
+ */
+
+int rdfile_handler_rcv(EVENT_HANDLER_PAR)
+{
+//    struct module_object *this = module_get_struct(handler->base);
+    struct rdfile *rdfile = (struct rdfile *)handler->objdata;
+    struct uni_data *data = event->data;
+    
+    rdfile_writefile(rdfile, data);
+
+    return 0;
 }
 
-void rdfile_send_m_event(struct module_object *module,
-		struct event_type *event_type, struct timeval *time,
-		unsigned long diff, float value) {
-	struct uni_data data;
 
-	memset(&data, 0, sizeof(data));
 
-	data.type = DATA_FLOAT;
-	data.value = (float) value;
-	data.mtime = diff;
-	data.data = &value;
-
-	module_base_send_event(module_event_create(event_type, &data, time));
+/**
+ * Write event handler
+ */
+int rdfile_ewrite(struct event_type *event, struct uni_data *data)
+{
+    struct rdfile *rdfile = (struct rdfile *)event->objdata;
+    
+    return rdfile_writefile(rdfile, data);
 }
 
-void exclude_max(int *values, int *excludes, int size) {
-	int value = 0;
-	int ptr = 0;
-	int i;
 
-	for (i = 0; i < size; i++) {
-		if (!excludes[i] && (values[i] > value)) {
-			value = values[i];
-			ptr = i;
-		}
-	}
-	excludes[ptr] = 1;
+
+
+void rdfile_send_m_event(struct module_object *module, struct event_type *event_type, struct timeval *time, unsigned long diff, float value)
+{
+    struct uni_data data;
+
+    memset(&data, 0, sizeof(data));
+
+    data.type = DATA_FLOAT;
+    data.value = (float)value;
+    data.mtime = diff;
+    data.data = &value;
+
+    //memcpy(&data.time, time, sizeof(data.time));
+    module_base_send_event(module_event_create(event_type, &data, time));
+//    module_base_send_event(&module->base, event_type, &data);
+}
+
+void exclude_max(int *values,  int *excludes, int size)
+{
+    int value = 0;
+    int ptr = 0;
+    int i;
+
+    for(i = 0 ; i < size; i++){
+        if(!excludes[i] && (values[i] > value)){
+                value = values[i];
+                ptr = i;
+        }
+    }
+    excludes[ptr] = 1;
+    
+}
+
+void exclude_min(int *values,  int *excludes, int size)
+{
+    int value = 0x7ffffff;
+    int ptr = 0;
+    int i;
+
+    for(i = 0 ; i < size; i++){
+        if(!excludes[i] && (values[i] < value)){
+            value = values[i];
+            ptr = i;
+        }
+    }
+    excludes[ptr] = 1;
+    
+}
+
+
+float calc_avg(int *values,  int *excludes, int size)
+{
+    float value = 0;
+    int count = 0;
+    int i = 0;
+//    printf("calc_avg size %d\n", size);
+    for(i = 0 ; i < size; i++){
+//        printf("value %d %d\n", values[i], excludes[i]);
+        if(!excludes[i]){
+            value += values[i];
+            count++;
+        }
+    }
+//    printf("calc_avg ret cnt %f %d\n", value, count);
+    if(count != 0)
+        return value/(float)count;
+    return value;
 
 }
 
-void exclude_min(int *values, int *excludes, int size) {
-	int value = 0x7ffffff;
-	int ptr = 0;
-	int i;
+                
+float calc_median(int *values, int size)
+{
+    int i;
+    float value = 0;
+    int *excludes = malloc(sizeof(int)*size);
+    int excludeno = size/4;
 
-	for (i = 0; i < size; i++) {
-		if (!excludes[i] && (values[i] < value)) {
-			value = values[i];
-			ptr = i;
-		}
-	}
-	excludes[ptr] = 1;
+//    printf("calc_median exno %d\n", excludeno);
+    memset(excludes, 0, sizeof(int)*size);
 
-}
+    for(i = 0; i < excludeno; i++)
+        exclude_max(values,  excludes, size);
 
-float calc_avg(int *values, int *excludes, int size) {
-	float value = 0;
-	int count = 0;
-	int i = 0;
-	for (i = 0; i < size; i++) {
-		if (!excludes[i]) {
-			value += values[i];
-			count++;
-		}
-	}
+    for(i = 0; i < excludeno; i++)
+        exclude_min(values,  excludes, size);
+    
+    
+    value =  calc_avg(values, excludes,size);
 
-	if (count != 0)
-		return value / (float) count;
-	return value;
+    free(excludes);
+    
+//    printf("calc_median ret %f\n", value);
+    return value;
 
 }
 
-float calc_median(int *values, int size) {
-	int i;
-	float value = 0;
-	int *excludes = malloc(sizeof(int) * size);
-	int excludeno = size / 4;
+int rdfile_upd_status(struct rdfile *rdfile)
+{
+    int status = 0;
 
-	memset(excludes, 0, sizeof(int) * size);
+    if(rdfile->bound_max != rdfile->bound_min){
+	if(rdfile->last_value > rdfile->bound_max)
+	    status = 1;
+	if(rdfile->last_value < rdfile->bound_min)
+	    status = 1;
+    }
 
-	for (i = 0; i < excludeno; i++)
-		exclude_max(values, excludes, size);
-
-	for (i = 0; i < excludeno; i++)
-		exclude_min(values, excludes, size);
-
-	value = calc_avg(values, excludes, size);
-
-	free(excludes);
-
-	return value;
-
-}
-
-int rdfile_upd_status(struct rdfile *rdfile) {
-	int status = 0;
-
-	if (rdfile->bound_max != rdfile->bound_min) {
-		if (rdfile->last_value > rdfile->bound_max)
-			status = 1;
-		if (rdfile->last_value < rdfile->bound_min)
-			status = 1;
-	}
-
-	if (status != rdfile->fault_state) {
-		printf("rdfile state %d --> %d\n", rdfile->fault_state, status);
+    if(status != rdfile->fault_state){
+		//printf( "rdfile state %d --> %d\n",rdfile->fault_state, status);
 		rdfile->fault_state = status;
-	}
+    }
 
-	return status;
 
+    return status;
+ 
 }
 
-float rdfile_readfile(struct rdfile *rdfile) {
-	int value = 0;
-	float fvalue = 0;
-	float calc_value = 0;
-	char buf[32];
-	int retval = 0;
-	int i;
-	int *values = NULL;
-	int fd = open(rdfile->filepath, O_RDONLY);
 
-	if (fd < 0) {
-		PRINT_ERR("error opening file %s: %s", rdfile->filepath, strerror(errno));
-		return -1;
-	};
+int rdfile_writefile(struct rdfile *rdfile, struct uni_data *data)
+{
+    const char *path = rdfile->filepath;
+    FILE *file = NULL;
+    char buffer[256];
 
-	memcpy(&rdfile->rdtime, time, sizeof(struct timeval));
+    if(!path){
+        PRINT_ERR("no device");
+        return -EFAULT;
+    }
+    
+    file = fopen(path, "w");
 
-	values = malloc(sizeof(int) * rdfile->mread_cnt);
+    if(!file){
+        PRINT_ERR("error opening %s: %s", path, strerror(errno));
+        return -errno;
+    }
+    
+    uni_data_get_txt_value(data, buffer, sizeof(buffer));
 
-	for (i = 0; i < rdfile->mread_cnt; i++) {
+//    fprintf(file,"%s", buffer);  
+    
+    fclose(file);
+    
+    return 0;
+}
 
-		retval = read(fd, buf, sizeof(buf));
 
-		if (retval < 0) {
-			PRINT_ERR("read error");
-			close(fd);
-			free(values);
-			return -1;
+float rdfile_readfile(struct rdfile *rdfile)
+{
+    int value = 0;
+    float fvalue = 0;
+    float calc_value = 0;
+    char buf[32];
+    int retval = 0;
+    int i;
+    int *values = NULL;
+    int fd = open(rdfile->filepath, O_RDONLY);
+
+    if(fd < 0){
+        PRINT_ERR("error opening file %s: %s", rdfile->filepath, strerror(errno));
+        return -1;
+    };
+    
+    memcpy(&rdfile->rdtime, time, sizeof(struct timeval));
+
+    values = malloc(sizeof(int)*rdfile->mread_cnt);
+
+
+
+
+    for(i = 0; i < rdfile->mread_cnt; i++){
+		
+        retval = read(fd, buf, sizeof(buf));   
+
+        if(retval < 0){
+            PRINT_ERR("read error");
+			calc_value = -1;
+			goto out;
 		}
+        
+        switch(rdfile->imode){
+          default:
+          case IMODE_ASCII:
+            value = atoi(buf);
+            break;
+          case IMODE_INT:
+            value = (int)buf;
+            break;
+          /* case IMODE_SHORT: */
+          /*   value = (short)buf; */
+          /*   break; */
+          /* case IMODE_CHAR: */
+          /*   value = (char)buf; */
+          /*   break; */
+        }
 
-		switch (rdfile->imode) {
-		default:
-		case IMODE_ASCII:
-			value = atoi(buf);
-			break;
-		case IMODE_INT:
-			value = (int) buf;
-			break;
-		}
+        values[i] = value;
+    }
+    
+    fvalue = calc_median(values, rdfile->mread_cnt);
+    value = (int) fvalue;
+   
+    
+    calc_value = module_calc_calc(rdfile->calc, fvalue);
+    //PRINT_DBG(1, "read: %f, calc_value: %f\n ", fvalue, calc_value);
 
-		values[i] = value;
-	}
-
-	fvalue = calc_median(values, rdfile->mread_cnt);
-	value = (int) fvalue;
+  out:
 	free(values);
-
-	calc_value = module_calc_calc(rdfile->calc, fvalue);
-
 	close(fd);
-
-	return calc_value;
-
-}
-
-int rdfile_read(struct module_object *module, struct rdfile *rdfile,
-		struct timeval *time) {
-	float calc_value = 0;
-
-	calc_value = rdfile_readfile(rdfile);
-
-	rdfile->last_value = calc_value;
-	if (rdfile_upd_status(rdfile) == 0)
-		rdfile_send_m_event(module, rdfile->event_type, time, 1, calc_value);
-
-	return 0;
+    return calc_value;
 
 }
 
-struct module_object* module_get_struct(struct module_base *module) {
-	return (struct module_object*) module;
-}
 
-struct event_handler handlers[] = { { .name = "" } };
+int rdfile_read(struct module_object *module, struct rdfile *rdfile, struct timeval *time)
+{
+    float calc_value = 0;
 
-float get_attr_float(const char **attr, const char *id, float rep_value) {
-	int attr_no;
-	float ret;
-	char *format;
+    calc_value = rdfile_readfile(rdfile);
+//    PRINT_DBG(1, "read: %f, calc_value: %f\n ", fvalue, calc_value);
+    rdfile->last_value = calc_value;
+    if(rdfile_upd_status(rdfile)==0)
+	rdfile_send_m_event(module, rdfile->event_type, time, 1, calc_value);
+    
+    /* close(fd); */
 
-	attr_no = get_attr_no(attr, id);
-
-	if (attr_no < 0) {
-		return rep_value;
-	}
-
-	if (sscanf(attr[attr_no], "%f", &ret) != 1) {
-		printf("Attribute %s could not be red: %s (format %s)\n", id,
-				attr[attr_no], format);
-		return rep_value;
-	}
-	printf("get_attr_float %f\n", ret);
-
-	return ret;
-}
-
-int start_rdfile(XML_START_PAR) {
-	struct module_object* this = module_get_struct(ele->parent->data);
-	const char *calc = NULL;
-	struct rdfile *rdfile = rdfile_create(get_attr_str_ptr(attr, "path"),
-			get_attr_int(attr, "interval", 60), get_attr_str_ptr(attr,
-					"event_mode"), get_attr_str_ptr(attr, "input"));
-
-	if (!rdfile)
-		return -1;
-
-	rdfile->event_type = event_type_create_attr(&this->base, (void*) rdfile,
-			attr);
-
-	rdfile->event_type->read = rdfile_eread;
-
-	rdfile->calc = module_calc_create(get_attr_str_ptr(attr, "calc"),
-			this->base.verbose);
-
-	rdfile->mread_cnt = get_attr_int(attr, "multiread", 1);
-
-	if (!rdfile->event_type) {
-		PRINT_ERR("event_type is NULL");
-		return -1;
-	}
-
-	this->base.event_types = event_type_add(this->base.event_types,
-			rdfile->event_type); // make it avaliable
-
-
-	this->rdfiles = rdfile_add(this->rdfiles, rdfile); // Add rdfile
-
-
-	rdfile->bound_max = get_attr_float(attr, "max", 0);
-	rdfile->bound_min = get_attr_float(attr, "min", 0);
-	rdfile->bound_zero = get_attr_float(attr, "bzero", 0);
-
-	PRINT_MVB(&this->base, "max %f, min %f, bzero %f %s\n", rdfile->bound_max,
-			rdfile->bound_min, rdfile->bound_zero, "test");
-
-	return 0;
-}
-
-struct xml_tag module_tags[] = {
-		{ "file", "module", start_rdfile, NULL, NULL }, { "", "", NULL, NULL,
-				NULL } };
-
-int module_init(struct module_base *base, const char **attr) {
-	struct module_object* this = module_get_struct(base);
-
-	this->fault_state = -1;
-	base->flags |= FLAG_LOG;
-
-	this->fault_event = event_type_create(base, NULL, "fault", "",
-			"Readfile Fault Event", DEFAULT_FFEVT );
-
-	base->event_types = event_type_add(base->event_types, this->fault_event);
-
-	return 0;
+    return 0;
 
 }
 
-void module_deinit(struct module_base *module) {
-	struct module_object* this = module_get_struct(module);
-
-	rdfile_delete(this->rdfiles);
-
-	return;
+struct module_object* module_get_struct(struct module_base *module){
+    return (struct module_object*) module;
 }
 
-int module_status(struct module_object* this, struct timeval *time) {
-	struct module_base *base = &this->base;
 
-	int new_state = 0;
-	struct rdfile *ptr = this->rdfiles;
+//struct event_handler handlers[] = { {.name = "read", .function = handler_read} ,{.name = ""}};
+struct event_handler handlers[] = { {.name = ""}};
 
-	while (ptr) {
-		if (ptr->fault_state > new_state)
-			new_state = ptr->fault_state;
-		ptr = ptr->next;
-	}
 
-	if (new_state != this->fault_state) {
-		struct uni_data data;
-		PRINT_MVB(base, "fault state changed %d --> %d", this->fault_state ,new_state);
-		this->fault_state = new_state;
-		memset(&data, 0, sizeof(data));
-		data.type = DATA_INT;
-		data.value = new_state;
-		data.mtime = 1;
+int start_rdfile(XML_START_PAR)
+{
+    struct modules *modules = (struct modules*)data;
+    struct module_object* this = module_get_struct(ele->parent->data);
+    const char *calc = NULL;
+    struct rdfile *rdfile = rdfile_create(get_attr_str_ptr(attr, "path"),
+                  get_attr_int(attr, "interval", 60),
+                  get_attr_str_ptr(attr, "event_mode"),
+                  get_attr_str_ptr(attr, "input"));
 
-		module_base_send_event(module_event_create(this->fault_event, &data,
-				time));
-	}
+    if(!rdfile)
+        return -1;
 
-	return 0;
+    rdfile->event_type =  event_type_create_attr(&this->base,(void*)rdfile,attr);
+
+    rdfile->event_type->read  = rdfile_eread;
+    
+    if(get_attr_int(attr, "write", this->write_enabled))
+	rdfile->event_type->write = rdfile_ewrite;
+
+    rdfile->calc = module_calc_create(get_attr_str_ptr(attr, "calc"),this->base.verbose);  
+
+    rdfile->mread_cnt = get_attr_int(attr, "multiread", 1);
+    
+    if(!rdfile->event_type){
+        PRINT_ERR("event_type is NULL");
+        return -1;
+    }    
+
+    this->base.event_types = event_type_add(this->base.event_types, rdfile->event_type); // make it avaliable
+
+
+    this->rdfiles = rdfile_add(this->rdfiles, rdfile); // Add rdfile
+    
+    
+    
+    rdfile->bound_max = get_attr_float(attr, "max", 0);
+    rdfile->bound_min = get_attr_float(attr, "min", 0);
+    rdfile->bound_zero = get_attr_float(attr, "bzero", 0);
+    
+    if( get_attr_str_ptr(attr, "event")){
+	/* create event handler */
+	struct event_handler *event_handler = event_handler_create(get_attr_str_ptr(attr, "name")
+								   ,  rdfile_handler_rcv ,&this->base, (void*)rdfile);
+	
+	this->base.event_handlers = event_handler_list_add(this->base.event_handlers, event_handler);
+
+	return module_base_subscribe_event(&this->base, modules->list, get_attr_str_ptr(attr, "event"), FLAG_ALL, 
+				event_handler, attr);
+
+    }
+
+
+    PRINT_MVB(&this->base, "max %f, min %f, bzero %f %s\n",  rdfile->bound_max, 
+	      rdfile->bound_min, rdfile->bound_zero, "test");
+
+    return 0;
+}
+
+struct xml_tag module_tags[] = {                         \
+    { "file" , "module" , start_rdfile, NULL, NULL},   \
+    { "" , "" , NULL, NULL, NULL }                       \
+};
+
+int module_init(struct module_base *base, const char **attr)
+{
+    struct module_object* this = module_get_struct(base);
+    
+    this->fault_state = -1;
+    base->flags |= FLAG_LOG;
+
+    this->fault_event = event_type_create(base, NULL, "fault", "","Readfile Fault Event", DEFAULT_FFEVT );
+    
+    base->event_types = event_type_add(base->event_types, this->fault_event);
+
+    this->write_enabled = get_attr_int(attr, "write", 0);
+
+    this->tick = module_tick_create(base->tick_master,  get_attr_float(attr, "interval", 0), TICK_FLAG_SECALGN1);
+
+
+		
+
+    return 0;
 
 }
 
-void* module_loop(void *parm) {
-	struct module_object *this = module_get_struct(parm);
-	struct module_base *base = (struct module_base *) parm;
-	int retval;
-	time_t prev_time;
-	base->run = 1;
+void module_deinit(struct module_base *module)
+{
+    struct module_object* this = module_get_struct(module);
 
-	while (base->run) {
-		struct rdfile *rdfile = this->rdfiles;
-		struct timeval tv;
-		gettimeofday(&tv, NULL);
-		while (rdfile) {
-			if ((tv.tv_sec % rdfile->interval) == 0) {
-				rdfile_read(this, rdfile, &tv);
-			}
-			rdfile = rdfile->next;
+    rdfile_delete(this->rdfiles);
+
+    module_tick_delete(this->tick);
+
+    return;
+}
+
+int module_status(struct module_object* this, struct timeval *time)
+{
+     struct module_base *base = &this->base;
+    
+    int new_state = 0;
+    struct rdfile *ptr = this->rdfiles;
+
+    while(ptr){
+	if(ptr->fault_state > new_state)
+	    new_state = ptr->fault_state;
+	ptr = ptr->next;
+    }
+    
+    if(new_state != this->fault_state){
+	struct uni_data data;
+	PRINT_MVB(base, "fault state changed %d --> %d", this->fault_state ,new_state);
+	this->fault_state = new_state;
+	memset(&data, 0, sizeof(data)); 
+	data.type = DATA_INT;
+	data.value = new_state;
+	data.mtime = 1; 
+	//memcpy(&data.time, time, sizeof(data.time));
+	module_base_send_event(module_event_create(this->fault_event, &data, time));
+    }
+
+    return 0;
+    
+}
+
+
+
+
+void* module_loop(void *parm)
+{
+    struct module_object *this = module_get_struct(parm);
+    struct module_base *base = ( struct module_base *)parm;
+    int retval;
+    time_t prev_time;
+    base->run = 1;
+    
+    while(base->run){ 
+        struct rdfile *rdfile = this->rdfiles;
+        struct timeval tv;
+
+		module_tick_wait(this->tick, &tv);
+		
+		if(pthread_mutex_lock(&rdfile_mutex)){
+			PRINT_ERR("error locking mutex");
+			return -1; 
 		}
-		prev_time = tv.tv_sec;
+	   		
+		while(rdfile){
+            if((tv.tv_sec%rdfile->interval)==0){
+				usleep(5000); // To make the ADC regain voltage (tested value by CRA) 
+				PRINT_MVB(base, "Read %s.%s ------------------", base->name, rdfile->event_type->name);
+				rdfile_read(this, rdfile, &tv);
+            }
+            rdfile = rdfile->next;
+        }
+		pthread_mutex_unlock(&rdfile_mutex); 
+		
+        prev_time = tv.tv_sec;
 		module_status(this, &tv);
-		modutil_sleep_nextsec(&tv);
-	}
 
-	PRINT_MVB(base, "loop returned");
-
-	return NULL;
+    } 
+    
+    PRINT_MVB(base, "loop returned");
+    
+    return NULL;
 
 }
 
-struct module_type
-		module_type = { .name = "readfile", .mtype = MTYPE_INPUT,
-				.subtype = SUBTYPE_LEVEL, .xml_tags = module_tags,
-				.handlers = handlers,
-				.type_struct_size = sizeof(struct module_object), };
+struct module_type module_type = {                  \
+    .name       = "readfile",                       \
+    .xml_tags   = module_tags,                      \
+    .handlers   = handlers ,                        \
+    .type_struct_size = sizeof(struct module_object), \
+};
 
-struct module_type *module_get_type() {
-	return &module_type;
+
+struct module_type *module_get_type()
+{
+    return &module_type;
 }
+
+
+
 
 /**
  * @} 

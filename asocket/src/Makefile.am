@@ -1,15 +1,18 @@
 VERSIONINC = version.h
 
-lib_LTLIBRARIES  = libasocket.la
+lib_LTLIBRARIES  = libasocket.la #libliconsk.la
 bin_PROGRAMS = asockettest
 BUILT_SOURCES = version.h
 
 asockettest_SOURCES = asockettest.c
 asockettest_LDADD =  -lasocket
+asockettest_DEPENDENCIES = libasocket.la
 
 # Main application
 libasocket_la_SOURCES = asocket.c asocket_server.c asocket_client.c asocket_trx.c
+
 include_HEADERS = asocket.h asocket_client.h asocket_server.h asocket_trx.h
+
 
 # clean backup files
 CLEANFILES = *~ .ver $(VERSIONINC)

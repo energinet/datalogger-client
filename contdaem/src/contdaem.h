@@ -1,6 +1,6 @@
 /*
  * Energinet Datalogger
- * Copyright (C) 2009 - 2011 LIAB ApS <info@liab.dk>
+ * Copyright (C) 2009 - 2012 LIAB ApS <info@liab.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -15,12 +15,12 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-
+ 
 #ifndef CONTDAEM_H_
 #define CONTDAEM_H_
 
-#include "module_base.h"
 #include "uni_data.h"
+#include "module_base.h"
 #include "module_event.h"
 #include "module_type.h" 
 #include "module_util.h"
@@ -58,19 +58,18 @@
  * therefor encapsulated in a universal data type. The universal data type supports integer,
  * float value, a flow, a text, a state with text and fault state with text. All can be 
  * converted into text using the functions for this object and logged by the database module.
- * @see uni_data_grp \n
- * @ref data_types "data types"
+ * @see uni_data_grp \n * @ref data_types "data types"
  * 
  * @section conf_sec The Configuration File
  * The configuration is a XML file describing all the modules to load. 
  * The file is structures with a \<modules> section containing a list of \<module> tags,
  * each creating a module. An example of the XML structure:
  * @verbatim 
- <modules>
- <module type="type_name" name="module_name" custom_attribute="value">
- <custom_tag attribute1="text" attribute2="10" />
- </module>
- </modules>@endverbatim
+   <modules>
+     <module type="type_name" name="module_name" custom_attribute="value">
+       <custom_tag attribute1="text" attribute2="10" />
+     </module>
+   </modules>@endverbatim 
  * The \p type_name is the name of the module type and \p module_name is the name of the
  * module witch other modules use for referencing the module. A module can have custom tags 
  * and attributes.
@@ -127,6 +126,9 @@
 
  */
 
+
+
+
 /**
  * Macro for printing errors
  */
@@ -137,13 +139,19 @@
  */
 #define PRINT_DBG(cond, str,arg...) {if(cond){fprintf(stderr,"%s: "str"\n",__FUNCTION__, ## arg);}}
 
+
 /**
  * Macro for printing debig in modules
  * Will print if a module is marked verbose 
  */
 #define PRINT_MVB(module, str,arg...) {if((module)->verbose){fprintf(stderr,"%s: "str"\n",(module)->name, ## arg);}}
 
+
+
+
 #endif /* CONTDAEM_H_ */
+
+
 
 /*  LocalWords:  structs
  */

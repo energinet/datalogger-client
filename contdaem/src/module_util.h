@@ -1,6 +1,6 @@
 /*
  * Energinet Datalogger
- * Copyright (C) 2009 - 2011 LIAB ApS <info@liab.dk>
+ * Copyright (C) 2009 - 2012 LIAB ApS <info@liab.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -71,38 +71,39 @@
 /**
  * Calculation types 
  */
-enum calc_type {
-	/**
-	 * 1st degree polynomial. */
-	CALC_POLY1,
-	/**
-	 * 2nd degree polynomial. */
-	CALC_POLY2,
-	/**
-	 * Threshold. */
-	CALC_THRH,
+enum calc_type{
+    /**
+     * 1st degree polynomial. */
+    CALC_POLY1,
+    /**
+    * 2nd degree polynomial. */  
+    CALC_POLY2,
+    /**
+     * Threshold. */
+    CALC_THRH,
 };
 
 struct module_calc {
-	/**
-	 * Calculation type */
-	enum calc_type type;
-	/**
-	 * coefficient a */
-	float a;
-	/**
-	 * coefficient b */
-	float b;
-	/**
-	 * coefficient c */
-	float c;
-	/**
-	 * verbose calculation */
-	int verbose;
-	/**
-	 * Next element in the calculation chain */
-	struct module_calc *next;
+    /**
+     * Calculation type */
+    enum calc_type type;
+    /**
+     * coefficient a */
+    float a;
+    /**
+     * coefficient b */
+    float b;
+    /**
+     * coefficient c */
+    float c;
+    /**
+     * verbose calculation */
+    int verbose;
+    /**
+     * Next element in the calculation chain */
+    struct module_calc *next;
 };
+
 
 /**
  * Create a @ref module_calc chain from a text string.
@@ -112,6 +113,7 @@ struct module_calc {
  * @return @ref module_calc chain 
  */
 struct module_calc *module_calc_create(const char *calc_str, int verbose);
+
 
 /**
  * Calculate a chain list
@@ -131,25 +133,26 @@ float module_calc_calc(struct module_calc *calc, float input);
  * Utility for flow to level conversion
  */
 
+
 /**
  * Flow to level conversion struct 
  */
-struct ftolunit {
-	/**
-	 * Flow unit */
-	char *funit;
-	/**
-	 * Level unit */
-	char *lunit;
-	/**
-	 * Scale  */
-	float scale;
-	/**
-	 * Do differentiation */
-	int diff;
-	/**
-	 * Number of decimals */
-	int decs;
+struct ftolunit{
+    /**
+     * Flow unit */
+    char *funit;
+    /**
+     * Level unit */
+    char *lunit;
+    /**
+     * Scale  */
+    float scale;
+    /**
+     * Do differentiation */
+    int diff;
+    /**
+     * Number of decimals */
+    int decs; 
 };
 
 /**
@@ -160,6 +163,7 @@ struct ftolunit {
  */
 struct ftolunit *module_calc_get_flunit(const char *funit, const char *lunit);
 
+
 /**
  * Calc level from flow 
  * @param usec Microseconds for the differentiation
@@ -167,8 +171,9 @@ struct ftolunit *module_calc_get_flunit(const char *funit, const char *lunit);
  * @param ftlunit The @ref ftolunit 
  * @todo use msec
  */
-float module_calc_get_level(unsigned long usec, float units,
-		struct ftolunit *ftlunit);
+float module_calc_get_level(unsigned long usec, float units, struct ftolunit *ftlunit);
+
+
 
 /**
  * @} 
@@ -180,6 +185,7 @@ float module_calc_get_level(unsigned long usec, float units,
  * Utility for time handeling.
  */
 
+
 /**
  * Calculate the millisecond difference.
  * @param now The current time or the newest time
@@ -187,8 +193,7 @@ float module_calc_get_level(unsigned long usec, float units,
  * @return Difference in milliseconds
  * @note behavior is unspecified if \p prev > \p now
  */
-unsigned long
-modutil_timeval_diff_ms(struct timeval *now, struct timeval *prev);
+unsigned long modutil_timeval_diff_ms(struct timeval *now, struct timeval *prev);
 
 /**
  * Add milliseconds to a timeval
@@ -223,6 +228,7 @@ void modutil_sleep_nextsec(struct timeval *time);
  */
 int modutil_get_listitem(const char *text, int def, const char** items);
 
+
 /**
  * String duplicater with NULL handling
  * @param str The string to be duplicated
@@ -230,8 +236,21 @@ int modutil_get_listitem(const char *text, int def, const char** items);
  */
 char *modutil_strdup(const char *str);
 
+
+
+
+struct mureplace_obj{
+    const char *search;
+    int (*callback)(void *userdata, char* buffer, int max_size);
+};
+
+
+int moduleutil_replace(const char *inbuf, char* outbuf, int maxoutsize, struct mureplace_obj *repl_lst, void *userdata);
+
+
 /**
  * @} 
  */
+
 
 #endif /* MODULE_UTIL */

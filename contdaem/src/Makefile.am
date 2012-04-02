@@ -6,19 +6,20 @@ bin_PROGRAMS = contdaem
 BUILT_SOURCES = version.h
 
 # Main application
-contdaem_SOURCES = contdaem.c 
-contdaem_LDADD = -lxmlpar -lmodule 
+contdaem_SOURCES = contdaem.c module_tick_master.c
+contdaem_LDADD = -lmodule
+contdaem_DEPENDENCIES = libmodule.la
 
 # General libs
-libmodule_la_SOURCES = uni_data.c module_event.c module_util.c type_loader.c module_type.c module_base.c 
+libmodule_la_SOURCES = uni_data.c module_event.c module_util.c type_loader.c module_type.c module_base.c module_tick.c module_value.c
+#libmodule_la_LIBADD = -lxmlpar 
 
-
-include_HEADERS = contdaem.h module_base.h module_event.h module_type.h module_util.h uni_data.h
+include_HEADERS = contdaem.h module_base.h module_event.h module_type.h module_util.h uni_data.h module_tick.h module_value.h
 
 # clean backup files
 CLEANFILES = *~ .ver $(VERSIONINC)
 
-AM_CFLAGS = -Wall
+AM_CFLAGS = -Wall -Werror
 
 version.h:
 	echo '/* Auto-generated at build time. */' > $(VERSIONINC)

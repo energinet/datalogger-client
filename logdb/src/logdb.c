@@ -1,6 +1,6 @@
 /*
  * Energinet Datalogger
- * Copyright (C) 2009 - 2011 LIAB ApS <info@liab.dk>
+ * Copyright (C) 2009 - 2012 LIAB ApS <info@liab.dk>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -15,7 +15,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-
+ 
 #include "logdb.h"
 
 #include <stdio.h>
@@ -187,10 +187,13 @@ int logdb_get_first_int(struct logdb *db, const char *sql, int len, int *result)
 }
 
 /*
- * return -2 if no version
- *        -1 if version is older
+ * return -4 if error
+ *        -3 if no version
+ *        -2 if major version is older
+ *        -1 if minor version is older
  *         0 if version is the same
- *         1 if version is newer
+ *         1 if minor version is newer
+ *         2 if major version is newer
  */
 
 int logdb_check_version(struct logdb *db) {
@@ -200,11 +203,11 @@ int logdb_check_version(struct logdb *db) {
 
 	if (db_version == NULL) {
 		PRINT_DBG(db->debug_level,"No DB version");
-		return -2;
+		return -4;
 	}
 
 	if (sscanf(db_version, "%d.%d", &db_ver_major, &db_ver_minor) != 2)
-		return -2;
+		return -3;
 
 	free(db_version);
 
@@ -216,9 +219,9 @@ int logdb_check_version(struct logdb *db) {
 		else
 			return -1;
 	} else if (db_ver_major > DB_VERSION_MAJOR)
-		return 1;
+		return 2;
 	else
-		return -1;
+		return -2;
 
 }
 
@@ -251,6 +254,21 @@ int logdb_init(struct logdb *db) {
 		return retval;
 	}
 
+	retval = logdb_sql(db, "CREATE INDEX IF NOT EXISTS evti"
+					   " ON event_log (eid)" , NULL);
+	if (retval < 0) {
+		PRINT_ERR("error creating index %s", "evti");
+		return retval;
+	}
+
+	
+	retval = logdb_sql(db, "PRAGMA default_cache_size=10000", NULL);
+
+	if (retval < 0) {
+		PRINT_ERR("error setting default_cache_size=10000");
+		return retval;
+	}
+
 	logdb_setting_set(db, "version", db_version);
 
 	return 0;
@@ -260,9 +278,14 @@ int logdb_init(struct logdb *db) {
 struct logdb *logdb_open(const char *filepath, int timeout, int debug_level) {
 	int retval;
 	struct logdb *db = malloc(sizeof(*db));
+
 	assert(db);
+	memset(db, 0, sizeof(*db));
 
 	db->debug_level = debug_level;
+
+    if(!filepath)
+		filepath = DEFAULT_DB_FILE;
 
 	PRINT_DBG(debug_level, "Opening database file %s",filepath);
 
@@ -283,7 +306,7 @@ struct logdb *logdb_open(const char *filepath, int timeout, int debug_level) {
 
 	retval = logdb_check_version(db);
 
-	if (retval == -2) {
+	if (retval != 0) {
 		retval = logdb_init(db);
 
 		if ((retval = logdb_init(db)) < 0) {
@@ -307,11 +330,16 @@ struct logdb *logdb_open(const char *filepath, int timeout, int debug_level) {
 /* close database file */
 void logdb_close(struct logdb *db) {
 	assert(db);
+
 	PRINT_DBG(db->debug_level, "Closing DB");
 	sqlite3_close(db->db);
+
 	db->db = NULL;
+
 	free(db->path);
+
 	free(db);
+
 }
 
 /* Add event */
@@ -331,9 +359,70 @@ int logdb_evt_add(struct logdb *db, int eid, time_t time, const char* value) {
 
 }
 
+
+int logdb_evt_get_last(struct logdb *db, int eid, time_t *time, char *valuebuf, size_t bufmax)
+{
+    char sql[DB_QUERY_MAX]; 
+    int ptr = 0;
+    sqlite3_stmt *stathandel;
+    const char *pzTail;
+    char retval = 0;
+    int sqlret;
+    ptr += snprintf(sql,DB_QUERY_MAX, "SELECT value, time FROM %s WHERE eid=%d AND "
+		    "time = (SELECT lastlog FROM %s WHERE eid = %d)", 
+		    DB_TABLE_NAME_EVENT_LOG, eid, DB_TABLE_NAME_EVENT_TYPE, eid);   
+    
+    PRINT_DBG(db->debug_level, "Get setting, sql: %s", sql);
+
+    sqlite3_prepare_v2(db->db, sql,  ptr , &stathandel, &pzTail );
+    
+    sqlret =  sqlite3_step(stathandel);
+
+    switch(sqlret){
+      case SQLITE_ROW:
+	strncpy(valuebuf, (const char*)sqlite3_column_text(stathandel, 0), bufmax);
+	*time = sqlite3_column_int(stathandel, 1);
+	retval = 0;
+        break;
+      case SQLITE_DONE:
+        PRINT_DBG(db->debug_level, "Get setting not found");
+	retval = -1;
+        break;
+      case SQLITE_BUSY:
+      case SQLITE_ERROR:
+      case SQLITE_MISUSE:
+      default:
+        break;
+    }
+
+    sqlite3_finalize(stathandel);
+    
+    PRINT_DBG(db->debug_level, "Setting returned %s", retval);
+    return retval;   
+}
+
+
+
+int logdb_evt_get_flast(struct logdb *db, int eid, time_t *time, float *value)
+{
+    char buffer[256];
+    int retval;
+       
+    if((retval = logdb_evt_get_last(db, eid, time, buffer, sizeof(buffer)))<0)
+	return retval;
+
+    if(sscanf(buffer, "%f", value)!=1)
+	return -1;
+
+    return 0;    
+
+}
+
+
 /* Get a list of events */
 sqlite3_stmt *logdb_evt_list_prep_send(struct logdb *db, int eid) {
 	char sql[DB_QUERY_MAX];
+	char eids[64];
 	int sqlp = 0;
 	int lastlog = 0;
 	int lastsend = 0;
@@ -342,12 +431,14 @@ sqlite3_stmt *logdb_evt_list_prep_send(struct logdb *db, int eid) {
 	sqlp = sprintf(sql, "SELECT lastsend FROM event_type WHERE eid=%d", eid);
 	logdb_get_first_int(db, sql, sqlp, &lastsend);
 
-	return logdb_evt_list_prep(db, eid, lastsend, lastlog);
+	sprintf(eids, "%d", eid);
+
+	return logdb_evt_list_prep(db, eids, lastsend, lastlog);
 
 }
 
 /* prepare list */
-sqlite3_stmt *logdb_evt_list_prep(struct logdb *db, int eid, time_t start,
+sqlite3_stmt *logdb_evt_list_prep(struct logdb *db, const char *eids, time_t start,
 		time_t end) {
 	char sql[DB_QUERY_MAX];
 	sqlite3_stmt *ppStmt;
@@ -358,11 +449,11 @@ sqlite3_stmt *logdb_evt_list_prep(struct logdb *db, int eid, time_t start,
 	ptr += snprintf(sql + ptr, DB_QUERY_MAX - ptr,
 			"SELECT eid,time,value FROM %s ", DB_TABLE_NAME_EVENT_LOG);
 
-	if ((eid >= 0) || start || end) {
+	if ((eids) || start || end) {
 		ptr += snprintf(sql + ptr, DB_QUERY_MAX - ptr, "WHERE ");
 
-		if (eid >= 0) {
-			ptr += snprintf(sql + ptr, DB_QUERY_MAX - ptr, "eid='%d' ", eid);
+		if (eids) {
+			ptr += snprintf(sql + ptr, DB_QUERY_MAX - ptr, "eid IN (%s) ", eids);
 
 			if (start || end)
 				ptr += snprintf(sql + ptr, DB_QUERY_MAX - ptr, "AND ");
@@ -501,6 +592,100 @@ int logdb_etype_get_eid(struct logdb *db, const char *ename) {
 
 	return result;
 
+}
+
+int logdb_etype_inprep(const char *enames, char *qnames_ret, int qnames_size)
+{
+	const char *ptr = enames;
+	const char *next = enames;
+	int retlen = 0;
+	int count = 0;
+	char *qnames_end = qnames_ret+qnames_size;
+	char *qnames_ptr = qnames_ret;
+	
+	if(!enames)
+		return 0;
+	fprintf(stderr, "inprep:%s\n", enames);
+	
+	do{
+		int len, i;
+		next = strchr(ptr+1,',');
+		fprintf(stderr, "next:%s\n", next);
+		if(next){
+			len = next-ptr;
+			next++;
+		}else
+			len = strlen(ptr);
+		
+		if(len > ((qnames_end-qnames_ptr)+4))
+			break;
+		if(len == 0)
+			break;
+
+		if(qnames_ptr == qnames_ret){
+			qnames_ptr += sprintf(qnames_ptr, "'"); 
+		} else {
+			qnames_ptr += sprintf(qnames_ptr, ",'"); 
+		}
+
+		memcpy(qnames_ptr, ptr, len);
+
+		for(i = 0; i < len; i++){
+			if((ptr[i] == '\'')||(ptr[i] == ' ')){
+				continue;
+			} else {
+				qnames_ptr[0] = ptr[i];
+				qnames_ptr++;
+			}
+				
+		}
+
+		qnames_ptr += sprintf(qnames_ptr, "'"); 
+		count++;
+		ptr = next;
+	}while(ptr); 
+	
+	return qnames_ptr -qnames_ret;
+
+}
+
+char *logdb_etype_get_eids(struct logdb *db, const char *enames, char *eids_ret, int eids_size)
+{
+	char query[1024];
+	int len = 0;
+	int retlen = 0;
+	int count;
+	int retval;
+	sqlite3_stmt *ppStmt;
+	const char *pzTail;
+	
+	len += sprintf(query+len, "SELECT eid FROM event_type WHERE ename IN (");
+	
+	count = logdb_etype_inprep(enames, query+len, sizeof(query)-len);
+
+	if(!count)
+		return NULL;
+	len += count;
+
+	len += sprintf(query+len, ");");
+	
+	fprintf(stderr, "Query: %s (count: %d)\n", query, count);
+
+	retval = sqlite3_prepare_v2(db->db, query, len, &ppStmt, &pzTail);
+
+	count= 0;
+	while(sqlite3_step(ppStmt) == SQLITE_ROW){
+		int eid = sqlite3_column_int(ppStmt, 0);
+		retlen += snprintf(eids_ret+retlen, eids_size-retlen, (retlen)?",%d":"%d" , eid);
+		count++;
+	}
+
+	
+	fprintf(stderr, "Result: %s  (count: %d)\n", eids_ret, count);
+	if(count)
+		return eids_ret;
+	else
+		return NULL;
 }
 
 /* Add event type */
@@ -802,9 +987,15 @@ int logdb_delete(struct logdb *db, const char *table, const char *where) {
 int logdb_evt_remove_old(struct logdb *db, time_t oldtime) {
 	char sql[DB_QUERY_MAX];
 	int ptr;
-	ptr += snprintf(sql, DB_QUERY_MAX, "time < %ld", oldtime);
+
+
+	ptr += snprintf(sql, DB_QUERY_MAX, "time <= %ld", oldtime);
+
+	fprintf(stderr, "DELETING: %s\n", sql);
 	return logdb_delete(db, DB_TABLE_NAME_EVENT_LOG, sql);
 }
+
+
 
 int logdb_evt_count_max(struct logdb *db) {
 
@@ -815,10 +1006,13 @@ int logdb_evt_count_max(struct logdb *db) {
 	ret = logdb_setting_get(db, "evt_count_max", vstr, 32);
 
 	if (ret) {
+		if(strcmp(ret, "cacheonly")==0)
+			return DB_SAVE_CACHEONLY;
+		
 		count_max = atoi(ret);
-		if (count_max > 10000) {
+		if (count_max > 10000) 
 			return count_max;
-		}
+	
 	}
 
 	return DEFAULT_EVT_MAX;
@@ -834,13 +1028,16 @@ int logdb_etype_removeobs(struct logdb *db) {
 	const char *pzTail;
 	int sqlret, retval;
 
+	time_t now    = time(NULL);
+	time_t minday = now-(24*60*60*2);
+
 	memset(eid_rem, 0, sizeof(eid_rem));
 
-	ptr
-			+= snprintf(
-					sql,
+	ptr	+= snprintf(sql,
 					DB_QUERY_MAX,
-					"SELECT eid, (select COUNT(*) from event_log WHERE event_log.eid=event_type.eid) AS count FROM event_type GROUP BY eid");
+					"SELECT eid, (select COUNT(*) from event_log WHERE"
+					" event_log.eid=event_type.eid) , lastlog"
+					" AS count FROM event_type GROUP BY eid");
 
 	db->show_progress = 1;
 
@@ -853,13 +1050,14 @@ int logdb_etype_removeobs(struct logdb *db) {
 	while ((sqlret = sqlite3_step(stathandel)) == SQLITE_ROW) {
 		int eid = sqlite3_column_int(stathandel, 0);
 		int count = sqlite3_column_int(stathandel, 1);
+		int lastlog = sqlite3_column_int(stathandel, 2);
 		char where[64];
-		if (count == 0) {
+		if ((count == 0) && (lastlog < minday)) {
 			sprintf(where, "eid=%d ", eid);
 			printf("deleting from etypes where %s\n", where);
 			logdb_delete(db, DB_TABLE_NAME_EVENT_TYPE, where);
 		} else {
-			printf("etypes %d has %d rows\n", eid, count);
+			printf("etypes %d has %d rows (lastlog %d sec ago)\n", eid, count, now-lastlog);
 		}
 
 	}
@@ -895,13 +1093,66 @@ int logdb_evt_maintain(struct logdb *db) {
 
 	printf("Count %d, count max %d\n", row_count, row_max);
 
+	if(row_max == DB_SAVE_CACHEONLY){
+		logdb_get_first_int(db, "SELECT MIN(lastsend) FROM event_type WHERE lastsend != 0", 0, &mintime);
+		row_max = 50000;
+	} 
+
 	if (row_count > row_max) {
 		logdb_get_first_int(db, "SELECT MIN(time) FROM event_log", 0, &mintime);
 		mintime += 60 * 60 * 24;
+	} 
+
+	if(mintime){
 		logdb_evt_remove_old(db, mintime);
 		logdb_etype_removeobs(db);
 	}
+	
+
 
 	return 0;
 
 }
+
+int logdb_evt_vacuum(struct logdb *db) 
+{
+	logdb_sql(db, "VACUUM;", 0);	
+}
+
+
+
+int logdb_lock(struct logdb *db)
+{
+	int retval = 0;
+    int timeout = 15;
+	
+    while(timeout > 0){
+		PRINT_DBG(db->debug_level, "BEGIN EXCLUSIVE (%d)\n", timeout);
+		retval = logdb_sql(db,"BEGIN EXCLUSIVE", NULL);
+		if(retval == SQLITE_OK)
+			return SQLITE_OK;
+
+		sleep(1);
+		timeout--;
+    }
+    fprintf(stderr, "BEGIN EXCLUSIVE timed out %d %d\n", retval, timeout);
+    return SQLITE_BUSY;
+
+}
+
+int logdb_unlock(struct logdb *db)
+{
+	int retval = 0;
+    int timeout = 15;
+
+	while(timeout > 0){
+		retval = logdb_sql(db,"COMMIT", NULL);
+		if(retval == SQLITE_OK)
+			return SQLITE_OK;
+		sleep(1);
+		timeout--;
+	}
+
+	return retval;
+}
+
