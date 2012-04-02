@@ -1,0 +1,5 @@
+<conf>
+  <application name="vppapp" >
+    <cmd start="vppapp -i 87.48.235.162 -p 25052 -n" pidfile="/var/run/vppapp.pid" />
+  </application>
+</conf>

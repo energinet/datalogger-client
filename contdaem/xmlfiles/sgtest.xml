@@ -1,0 +1,76 @@
+<modules>
+  <module type="drumbeat" name="drumbeat" verbose="1">
+    <beat 
+  </module>
+  <module type="modbus_read" name="modbus" verbose="1">
+    <read ename="indore" unit="°C" text="Indendørs" id="16"
+          type="input" reg="248" interval="3600" calc="poly1:a0.1b0"/>
+    <read ename="outdore" unit="°C" text="Udendørs" id="16"
+          type="input" reg="252" interval="3600" calc="poly1:a0.1b0"/>
+  </module>
+  <module type="s0flow" name="s0flow00"  verbose="1">
+    <input device="/dev/input/event0"/>
+    <port text="El varmepumpe" unit="cJ" upp="1800"/>
+    <port text="Forsyning" unit="cJ" upp="1800"/>
+  </module>
+  <module type="readfile" name="rdfile"  verbose="1">
+    <file path="/dev/adc3" name="adc2" text="Temperatur 1" unit="°C"
+          interval="30" calc="poly2:a0.00000287b0.0238c-39.576"/>
+    <file path="/dev/adc2" name="adc1" text="Temperatur 2" unit="°C"
+          interval="30" calc="poly2:a0.00000287b0.0238c-39.576"/>
+    <file path="/dev/adc1" name="adc0" text="Temperatur 3" unit="°C"
+          interval="30" calc="poly2:a0.00000287b0.0238c-39.576"/>
+    <file path="/sys/bus/i2c/devices/0-002c/temp1_input" name="intern"
+          text="Intern" unit="°C" interval="300" calc="poly1:a0.001b0"
+          />
+    <file path="/sys/bus/i2c/devices/0-002c/in0_input" name="v18"
+          text="1,8V" unit="V" interval="300" calc="poly1:a0.001b0"
+          />
+    <file path="/sys/bus/i2c/devices/0-002c/in2_input" name="v33"
+          text="3,3V" unit="V" interval="300" calc="poly1:a0.001b0"
+          />
+    <file path="/sys/bus/i2c/devices/0-002c/in3_input" name="v50"
+          text="5,0V" unit="V" interval="300" calc="poly1:a0.001b0"
+          />
+  </module>
+  <module type="sysinf" name="system"  verbose="1">
+    <info type="memfree" interval="150"/>
+    <info type="vmused" interval="150"/>
+    <info type="p_mrss" app="contdaem" pidfile="/var/run/contdaem.pid" 
+          interval="150"/>
+    <info type="p_mvsz" app="contdaem" pidfile="/var/run/contdaem.pid" 
+          interval="150"/>
+    <info type="p_mrss" app="licon" pidfile="/var/run/licon.pid" 
+          interval="150"/>
+    <info type="p_mvsz" app="licon" pidfile="/var/run/licon.pid" 
+          interval="150"/>
+    <filesize name="bigdb" path="/jffs2/bigdb.sql" 
+          interval="150"/>
+    <partfree name="root" path="/" 
+              interval="150"/>
+  </module>
+  <module type="licon" name="net"  verbose="1">
+  </module>
+  <module type="dblogger" name="dblogger" verbose="1">
+    <subscribe source="s0flow00" event="opt00" />
+    <subscribe source="s0flow00" event="opt01" />
+    <subscribe source="rdfile"   event="adc2" />
+    <subscribe source="rdfile"   event="adc1" />
+    <subscribe source="rdfile"   event="adc0" />
+    <subscribe source="modbus"   event="indore" />
+    <subscribe source="modbus"   event="outdore" />
+    <subscribe source="rdfile"   event="intern"  type="hide"/>
+    <subscribe source="rdfile"   event="v18"  type="hide"/>
+    <subscribe source="rdfile"   event="v33"  type="hide"/>
+    <subscribe source="rdfile"   event="v50"  type="hide"/>
+    <subscribe source="system"   event="memfree"  type="hide"/>
+    <subscribe source="system"   event="contdaem_mrss"  type="hide"/>
+    <subscribe source="system"   event="contdaem_mvsz"  type="hide"/>
+    <subscribe source="system"   event="licon_mrss"  type="hide"/>
+    <subscribe source="system"   event="licon_mvsz"  type="hide"/>
+    <subscribe source="system"   event="root_free"  type="hide"/>
+    <subscribe source="system"   event="bigdb_size"  type="hide"/>
+    <subscribe source="net"      event="status" type="hide"/>   
+    <subscribe source="net"      event="status" type="hide"/>   
+  </module>
+</modules>

@@ -1,0 +1,314 @@
+A{
+font-family : Verdana, helvetica, sans-serif;
+font-size : 10px;
+text-decoration : underline;
+color : Blue; }
+
+A:Visited{
+font-family : Verdana, helvetica, sans-serif;
+color : Purple;
+text-decoration : underline; }
+
+A:Active
+{}
+
+A:Hover{
+color : Black;
+font-family : Verdana, helvetica, sans-serif; }
+
+A.delete{
+color : red;
+font-weight : bold; }
+
+A.delete:Visited {
+color : red;
+font-weight : bold; }
+
+A.statusbar, A.statusbar:Visited{
+color : black; }
+
+body {
+margin-top: 30px;
+font-family : Verdana, helvetica, sans-serif;
+font-size : 10px;
+color : black;
+background : white;
+text-decoration : none; }
+
+TABLE{
+border-collapse : collapse;
+border-width: 1px;
+border-style: solid;
+border-color: white;}
+
+TD{
+font-size : 10px;
+border-width: 1px;
+border-style: solid;
+border-color: white; }
+
+TD.greyback{
+background-color: #DDDDDD;
+vertical-align:top;
+border-width:4px;
+}
+
+TD.day{
+font-weight : bold; }
+
+TD.free{
+background-color: #AFD8B4;
+width: 90px;}
+
+TD.reserved {
+background-color: #FF9999;
+font-weight : bold; }
+
+TD.time {
+background-color: #FFFFFF; }
+
+TD.statusbarl {
+
+text-align : left;
+border-width: 0px;
+border-style: none;
+background-color: #DDDDDD; }
+
+TD.statusbarr {
+text-align : right;
+border-width: 0px;
+border-style: none;
+background-color: #DDDDDD; }
+
+IMG.clearpix {
+border-width: 0px;
+border-style: solid; }
+
+dl.box{margin:1px 0 1em 0;border-bottom:1px solid #bbbbbb;background-color:White;}
+dl.box a{text-decoration:none;}
+.box a.tile{display:block;}
+dd.boxItem a,dd.boxFooter a{border-bottom:none;}
+dd.boxItem a:visited,dd.boxFooter a:visited{color:#767676;}
+.boxHeader{background-color:#ececec;border:1px solid #bbbbbb;padding:0em 1em;text-transform:lowercase;font-weight:normal;line-height:1.6em;}
+.boxHeader a{color:Black;}
+.boxItem{margin:0;padding:1em;border-left:1px solid #bbbbbb;border-right:1px solid #bbbbbb;}
+.boxItemDetails{text-align:right;display:block;color:Black;}
+dd.boxFooter{background-color:#f5f5f5;margin:0;padding:0.25em 1em;border:1px solid #bbbbbb;border-style:dotted solid none solid;text-align:right;}
+.boxTopLeft {}
+.boxTopRight {}
+.boxBottomLeft {}
+.boxBottomRight {}
+
+/* - ploneCustom.css - */
+@media all {
+/* http://plone.org/portal_css/ploneCustom.css?original=1 */
+#portal-globalnav{text-align:center;}
+.newsImage{border:1px solid #ccc;}
+.addition{color:red;}
+.striken{text-decoration:line-through;}
+
+}
+
+p.comment {font-size:80%; color:gray;}
+
+body{font:69% "Lucida Grande",Verdana,Lucida,Helvetica,Arial,sans-serif;background-color:White;color:Black;margin:0;margin-top: 40px;padding:0;}
+table{font-size:100%;}
+a{color:#767676;background-color:transparent;}
+img{border:none;vertical-align:middle;}
+p{margin:0 0 0.75em 0;line-height:1.5em;}
+p img{border:none;margin:0;}
+
+form{border:none;margin:0;}
+label{font-weight:bold;}
+textarea{font:100% Monaco,"Courier New",Courier,monospace;border:1px solid #bbbbbb;color:Black;background:White url(http://plone.org/input_background.gif) repeat-x;width:100%;}
+input{font-family:"Lucida Grande",Verdana,Lucida,Helvetica,Arial,sans-serif;visibility:visible;border:1px solid #bbbbbb;color:Black;vertical-align:middle;background:White url(http://plone.org/input_background.gif) repeat-x;}
+button{font-family:"Lucida Grande",Verdana,Lucida,Helvetica,Arial,sans-serif;visibility:visible;border:1px solid #bbbbbb;color:Black;vertical-align:middle;background-color:#ececec;padding:1px;cursor:pointer;font-size:85%;text-transform:lowercase;}
+select{border:1px solid #bbbbbb;color:Black;background-color:White;vertical-align:top;}
+optgroup{font-style:normal;font-weight:bold;color:#999;padding-left:0.25em;}
+option{color:black;}
+
+legend{font-size:110%;font-weight:bold}
+
+body.fullscreen #portal-globalnav{margin-top:4em;}
+
+#portal-top{margin:0;padding:0;background-color:transparent;}
+
+#portal-globalnav {
+ background-color:transparent;
+ padding:0em 0em 0em 2em;
+ white-space:nowrap;
+ list-style:none;
+ margin:0;
+ height:auto;
+ line-height:normal;
+}
+#portal-globalnav li{
+ display:inline;
+}
+#portal-globalnav li a {
+ background-color:transparent;
+ border-color:#bbbbbb;
+ border-width:1px;
+ border-style:solid solid none solid;
+ color:#767676;
+ height:auto;
+ margin-right:0.5em;
+ padding:0em 1.25em;
+ text-decoration:none;
+ text-transform:lowercase;
+}
+#portal-globalnav li.selected a {
+ background-color:#ececec;
+ border:1px solid #bbbbbb;
+ border-bottom:#ececec 1px solid;
+ color:#767676;
+}
+#portal-globalnav li a:hover {
+ background-color:#ececec;
+ border-color:#bbbbbb;
+ border-bottom-color:#ececec;
+ color:#767676;
+}
+
+#portal-personaltools {
+ background-color:#ececec;
+ border-top-color:#bbbbbb;
+ border-top-style:solid;
+ border-top-width:1px;
+ border-bottom-color:#bbbbbb;
+ border-bottom-style:solid;
+ border-bottom-width:1px;
+ line-height:1.6em;
+ color:Black;
+ padding:0em 3em 0em 3em;
+ margin:0;
+ text-align:center;
+ text-transform:lowercase;
+ list-style:none;
+}
+#portal-personaltools .portalUser {
+ background:transparent url(http://plone.org/user.gif) center left no-repeat;
+ padding-left:18px;
+}
+#portal-personaltools .portalNotLoggedIn {
+ color:Black;
+ padding:0;
+ background:transparent;
+ background-image:none;
+}
+
+#portal-personaltools li.plain  { 
+ color:#767676;
+ margin-left:1em;
+ display:inline;
+ text-align:center;
+}
+
+#portal-personaltools li { 
+ color:#767676;
+ margin-left:1em;
+ display:inline;
+ 
+}
+#portal-personaltools li a {
+ text-decoration:none;
+ color:#767676;
+}
+#portal-personaltools .visualIconPadding {
+ padding-left:10px;
+}
+
+
+ul {
+ line-height:1.5em;
+ margin:0.5em 0 0 1.5em;
+ padding:0;
+ list-style-image:url(http://plone.org/bullet.gif);
+ list-style-type:square;
+}
+ol {
+ line-height:1.5em;
+ margin:0.5em 0 0 2.5em;
+ padding:0;
+ list-style-image:none;
+}
+li {
+ margin-bottom:0.5em;
+}
+
+table.consumption
+{ width: 100%;
+background-color: #fafafa;
+border: none;
+border-collapse: collapse;
+border-spacing: 0px; }
+
+th.consumption
+{ background-color: #ececec;
+text-align: left;
+border: none;
+font-weight: bold;
+color: #404040; 
+padding: 4 8 4 8;}
+
+td.consumption
+{ border-bottom: 1px #CCCCCC solid;
+text-align: left;
+font-weight: normal;
+color: #404040;
+background-color: #fafafa;
+padding-top: 4px;
+padding-bottom: 4px;
+padding-left: 8px;
+padding-right: 0px; }
+
+td.ap
+{ border: 1 1 1 1;
+text-align: left;
+font-weight: normal;
+color: #404040;
+background-color: #fafafa;
+padding-top: 4px;
+padding-bottom: 4px;
+padding-left: 8px;
+padding-right: 0px; }
+
+
+
+code {
+display: block;
+font-family: monospace;
+background-color: #eeeeee;
+border-top-width: 2px;
+border-right-width-value: 2px;
+border-right-width-ltr-source: physical;
+border-right-width-rtl-source: physical;
+border-bottom-width: 2px;
+border-left-width-value: 2px;
+border-left-width-ltr-source: physical;
+border-left-width-rtl-source: physical;
+border-top-style: dotted;
+border-right-style-value: dotted;
+border-right-style-ltr-source: physical;
+border-right-style-rtl-source: physical;
+border-bottom-style: dotted;
+border-left-style-value: dotted;
+border-left-style-ltr-source: physical;
+border-left-style-rtl-source: physical;
+border-top-color: #dddddd;
+border-right-color-value: #dddddd;
+border-right-color-ltr-source: physical;
+border-right-color-rtl-source: physical;
+border-bottom-color: #dddddd;
+border-left-color-value: #dddddd;
+border-left-color-ltr-source: physical;
+border-left-color-rtl-source: physical;
+margin-top: 15px;
+margin-right: 0pt;
+margin-bottom: 15px;
+margin-left: 0pt;
+padding-top: 15px;
+padding-right: 15px;
+padding-bottom: 15px;
+padding-left: 15px;
+}

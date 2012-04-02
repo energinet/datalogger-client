@@ -1,0 +1,72 @@
+# File:
+# gprs
+#
+# Description:
+# This file holds the serial cable and IrDA pppd options for GPRS phones 
+
+persist
+
+# To give some debug info
+debug
+
+# Serial device to which terminal is connected;
+# with serial port (COM1 in Windows) use /dev/ttyS0
+# and with IrDA use /dev/ircomm0.
+#/dev/ircomm0 # IrDA
+#/dev/ttyACM0
+/dev/ttyS2 # serial cable
+       
+
+# Serial port line speed
+115200
+
+# Hardware flow control needs to be used with serial cable.
+# With IrDA it should be disabled with nocrtscts option.
+crtscts  # serial cable  
+#nocrtscts # IrDA
+
+# To keep pppd on the terminal
+#nodetach
+
+# Connect script
+connect /etc/ppp/sg-connect-chat
+
+# IP addresses:
+# - accept peers idea of our local address and set address peer as 10.0.0.1 
+# (any address would do, since IPCP gives 0.0.0.0 to it)
+# - if you use the 10. network at home or something and pppd rejects it,
+# change the address to something else 
+:10.6.6.6
+
+# pppd must not propose any IP address to the peer!
+noipdefault
+
+# Accept peers idea of our local address
+ipcp-accept-local
+ipcp-accept-remote
+
+# Ignore carrier detect signal from the modem 
+local
+
+# No ppp compression
+noccp
+nobsdcomp
+novj
+novjccomp
+
+user ""
+
+
+
+# Disconnect script
+disconnect /etc/ppp/sg-disconnect-chat
+
+# Get DNS addresses
+usepeerdns
+
+# Add default route
+defaultroute
+replacedefaultroute
+
+linkname 3g
+#logfile /root/pppGprs.log

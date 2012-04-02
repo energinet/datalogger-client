@@ -1,0 +1,3 @@
+AUTOMAKE_OPTIONS = foreign
+SUBDIRS = gsoap  src
+CLEANFILES = *~

@@ -1,0 +1,81 @@
+#!/bin/sh
+# 
+# File: 
+# chat-gprs-connect
+#
+# Description: 
+# chat script to open Sonera GPRS service with GPRS phones. If ppp 
+# negotiation stalls, try restarting the phone. To try with other GPRS 
+# operator setting, change the PDP contex setting. The settings work with 
+# all Ericsson models, but Nokia 8310 does not suppor QoS parameters with 
+# AT commands, so just delete those lines and it'll work.
+#
+# Set PDP context CID=1, protocol=IP, APN=internet:
+# AT+CGDCONT=1,"IP","internet","",0,0
+#
+# Set CID=1 QoS requirements from the network, not supported by 8310:
+# AT+CGQREQ=1,0,0,0,0,0
+#
+# Set CID=1 minimum acceptable QoS parameters, not supported by 8310:
+# AT+CGQMIN=1,0,0,0,0,0
+#
+# 'Call' CID=1 (activate PDP context one, perform GPRS attach):
+# ATD*99***1#
+#
+#
+# For Nokia 6310i
+#
+#	OK		ATE1				\
+#	OK		'AT+CGQREQ=1,,,3'		\
+#	OK		'AT+CGDCONT=1,"IP","apn.liab.dk"'	\
+#	OK		ATD*99***1#			\
+#
+# For Siemens S45/MC35
+#
+#	OK		ATE1				\
+#	OK		'AT+CGDCONT=1,"IP","apn.liab.dk"'	\
+#	OK		ATD*99***1#			\
+#
+# The actual chat script:
+
+echo "din chat start"  > /tmp/chat
+
+exec chat -t 30 -T "$PPPAPN" -E					\
+    TIMEOUT  	5				\
+    ECHO 		  ON				\
+    ABORT		  '\nBUSY\r'			\
+    ABORT		  '\nERROR\r'			\
+    ABORT		  '\nNO ANSWER\r'			\
+    ABORT		  '\nNO CARRIER\r'		\
+    ABORT		  '\nNO DIALTONE\r'		\
+    ABORT     '\nRINGING\r\n\r\nRINGING\r'	\
+    ''	   	  \rAT				\
+    TIMEOUT	  5				\
+    SAY		    "Press CTRL-C to close the connection at any stage!"	\
+    SAY		    "\ndefining PDP context...\n"	\
+    OK		  AT+CGDCONT=2,\"IP\",\"\\T\"	\
+    OK		    ATD*99**PPP*2# \
+    TIMEOUT	  22				\
+    SAY		    "\nwaiting for connect...\n"	\
+    CONNECT		""				\
+    SAY		    "\nConnected." \
+    SAY		    "\nIf the following ppp negotiations fail,\n"	\
+    SAY		    "try restarting the phone.\n"
+
+
+#    OK        ATZ  \
+#     OK        AT^SGAUTH=0 \
+
+#    OK	 	    ATE1				\
+#    OK        AT+CMEE=1 \
+#    OK        AT^SICS=1,conType,CSD \
+#    OK	      AT\&F	\
+#    OK	      ATH0	\
+#    OK        AT^SICS=1,authMode,none \ 
+#    OK        AT^SICS=1,authMode,none \
+#    OK        at^sics=0,conType,GPRS0 \
+#    OK        AT^SICS=0,inactTO,\"0\"\
+#    OK        AT^SICS=0,authMode,\"none\"
+#    OK        AT^SICS=0,apn,"internet"\
+echo "din chat end" >> /tmp/chat
+

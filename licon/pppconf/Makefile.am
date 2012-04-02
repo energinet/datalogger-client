@@ -1,0 +1,2 @@
+peers_DATA = peers/3g peers/sg_egprs peers/sg_gprs peers/din_gprs peers/tunnel
+ppp_SCRIPTS = chat-sh/3g-connect-chat  chat-sh/3g-disconnect-chat  chat-sh/din-connect-chat  chat-sh/din-disconnect-chat chat-sh/sg-connect-chat chat-sh/sg-disconnect-chat

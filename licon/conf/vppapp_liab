@@ -1,0 +1,5 @@
+<conf>
+  <application name="vppapp" >
+    <cmd start="vppapp -i gw.liab.dk -p 7414" pidfile="/var/run/vppapp.pid" />
+  </application>
+</conf>

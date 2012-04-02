@@ -1,0 +1,1 @@
+ifscript_SCRIPTS = 3g_up.sh 3g_reset.sh modem_down.sh  modem_up.sh sgmodem_down.sh  sgmodem_up.sh 

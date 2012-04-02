@@ -1,0 +1,10 @@
+pty "pptp gw.liab.dk --nolaunchpppd"
+remotename PPTP
+require-mppe-128
+file /etc/ppp/options.pptp
+ipparam tun0 
+
+persist
+linkname tunnel
+unit 4
+

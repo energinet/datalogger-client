@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+
+
+#        chat -E					\
+#    TIMEOUT  	5				\
+#    ECHO 		  ON				\
+#    ABORT		  '\nBUSY\r'			\
+#    ABORT		  '\nERROR\r'			\
+#    ABORT		  '\nNO ANSWER\r'			\
+#    ABORT		  '\nNO CARRIER\r'		\
+#    ABORT		  '\nNO DIALTONE\r'		\
+#    ABORT     '\nRINGING\r\n\r\nRINGING\r'	\
+#    '' ATZ \
+#    OK ''
+
+
+exec chat -T "$PPPAPN" -E					\
+    TIMEOUT  	5				\
+    ECHO 		  ON				\
+    ABORT		  '\nBUSY\r'			\
+    ABORT		  '\nERROR\r'			\
+    ABORT		  '\nNO ANSWER\r'			\
+    ABORT		  '\nNO CARRIER\r'		\
+    ABORT		  '\nNO DIALTONE\r'		\
+    ABORT     '\nRINGING\r\n\r\nRINGING\r'	\
+    '' ATZ \
+    OK-AT-OK AT\\^SGAUTH=0 \
+    OK-AT-OK AT+CGDCONT=1,\"IP\",\"\\T\" \
+    TIMEOUT  	90				\
+    OK-AT-OK ATD*99***1#\
+    CONNECT ''
+#    OK-AT-OK ATD*99# \
+
+#    OK-AT-OK AT+CGQREQ=1,2,4,3,6,31 \
+#    OK-AT-OK AT+CGQMIN=1,2,4,3,6,31 \
+#    OK-AT-OK AT+CGREG? \
+#    '+CGREG: 0,1'-AT+CGREG? -AT+CGREG? \
+#    '+CGREG: 0,1'-AT+CGREG? -AT+CGREG? \
+#    '+CGREG: 0,1' '' \
+#    OK-AT-OK AT+CGATT=1 \

@@ -1,0 +1,15 @@
+<conf>
+  <net_if if="eth0" mode="dhcp" waittimes="5,60,120,300" />
+  <net_if if="ppp" mode="din_gprs" >
+    <cmd precmd="/etc/ifscript/modem_up.sh"/>
+    <cmd postcmd="/etc/ifscript/modem_down.sh"/>
+  </net_if>
+  <check cmd="ping -w 14 -c 4 -i 1  liab.dk" expect="0" 
+	 err_max="2" interval="120" />
+  <application name="rpclient" waittimes="5,60,120,300,600,1800" err_max="10">
+    <cmd start="/usr/bin/rpclient -n 1000 -H http://datalogger.liab.dk/cgi-bin/rpserver2.cgi" 
+	 pidfile="/var/run/rpclient.pid" />
+  </application>
+  <tunnel name="tunnel" enabled="1" ignore="1" /> 
+</conf>
+<!-- conf for datalog suite on Thu Dec 30 16:55:00 2010 -->

@@ -1,0 +1,7 @@
+<conf>
+  <net_if if="eth0" mode="dhcp" />
+  <net_if if="ppp" mode="sg_3g" >
+    <cmd precmd="/etc/ifscript/sgmodem_up.sh"/>
+    <cmd postcmd="/etc/ifscript/sgmodem_down.sh"/>
+  </net_if>
+</conf>

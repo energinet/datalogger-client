@@ -1,0 +1,24 @@
+cfiles = soap*.c soap*.h *.nsmap *.xml
+all: soapClient.c copy_file
+
+install: all copy_file
+
+soapClient.c: @headername@.h
+	@soapctool@ -c  @headername@.h
+
+.PRECIOUS: %.wsdl
+%.wsdl: 
+	wget http://data.styrdinvarmepumpe.dk/server2.php?wsdl -O $*.wsdl
+
+%.h: @headername@.wsdl
+	@soapwtool@ -c -o $*.h $*.wsdl 
+
+
+# ../../i386libs/tools/soapcpp2 -c   @rpcheader@
+
+copy_file:
+	$(foreach var,$(cfiles), cp $(var) ../src;)
+
+clean:
+	-rm $(cfiles)
+	-cd ../src ; /bin/rm $(cfiles)

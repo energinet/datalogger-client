@@ -1,0 +1,27 @@
+<modules>
+  <module type="s0flow" name="s0flow00">
+    <input device="/dev/input/event0"/>
+  </module>
+  <module type="levelToState" name="control00">
+    <subscribe source="s0flow00" event="unit1" />
+    <threshold set="1000"/>
+  </module>
+  <module type="relay" name="relay00">
+    <output device="/sys/class/leds/relay-X1/brightness"/>
+    <subscribe source="control00" event="state" />
+  </module>
+  <module type="relay" name="relay00led">
+    <output device="/sys/class/leds/addon-led-6/brightness"/>
+    <subscribe source="control00" event="state" />
+  </module>
+  <module type="logger" name="datalogger">
+    <subscribe source="s0flow00" event="unit0" />
+    <subscribe source="s0flow00" event="unit1" />
+    <subscribe source="s0flow00" event="unit2" />
+  </module>
+  <module type="dblogger" name="dblogger">
+    <subscribe source="s0flow00" event="unit0" />
+    <subscribe source="s0flow00" event="unit1" />
+    <subscribe source="s0flow00" event="unit2" />
+  </module>
+</modules>

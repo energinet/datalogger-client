@@ -1,0 +1,13 @@
+<conf>
+  <net_if if="eth0" mode="dhcp" waittimes="5,60,120,300" />
+  <net_if if="ppp" mode="sg_gprs" waittimes="5,60,120,300,600,900,300,900" >
+    <cmd precmd="/etc/ifscript/sgmodem_up.sh"/>	
+    <cmd postcmd="/etc/ifscript/sgmodem_down.sh"/>
+  </net_if>
+  <check cmd="ping -w 14 -c 4 -i 1  liab.dk" expect="0" err_max="1" interval="120" /><!-- fallback -->
+  <application name="rpclient" waittimes="5,60,120,300,600,1800" err_max="10">
+    <cmd start="/usr/bin/rpclient -n 1000 -H http://sink.dacs.liab.dk/cgi-bin/rpserver2.cgi -i 200" pidfile="/var/run/rpclient.pid" />
+  </application>
+  <tunnel name="tunnel" enabled="0" ignore="1"/>
+</conf>
+<!-- conf for en sg distro on Wed Mar 28 11:14:24 2012 -->

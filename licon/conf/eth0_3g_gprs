@@ -1,0 +1,11 @@
+<conf>
+  <net_if if="eth0" mode="dhcp" />
+  <net_if if="ppp" mode="3g" >
+    <cmd precmd="/etc/ifscript/3g_up.sh"/>
+    <cmd maxfail="1" repcmd="/etc/ifscript/3g_reset.sh"/>     
+  </net_if>
+  <net_if if="ppp" mode="gprs" >
+    <cmd precmd="/etc/ifscript/modem_up.sh"/>
+    <cmd postcmd="/etc/ifscript/modem_down.sh"/>
+  </net_if>
+</conf>

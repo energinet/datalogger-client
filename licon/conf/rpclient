@@ -1,0 +1,5 @@
+<conf>
+  <application name="rpclient" >
+    <cmd start="/usr/bin/rpclient -n 1000 -H http://datalogger.liab.dk/cgi-bin/rpserver.cgi" pidfile="/var/run/rpclient.pid" />
+  </application>
+</conf>
