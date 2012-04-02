@@ -33,9 +33,9 @@ Hentning af kildekoden fra github
 
 Til at hente kildekoden fra github skal programmet Git bruges.
 
-user@host:~$ git clone git://github.com/energinet/datalogger.git
-user@host:~$ cd datalogger
-user@host:~/datalogger$ ls
+user@host:~$ git clone git://github.com/energinet/datalogger-client.git
+user@host:~$ cd datalogger-client
+user@host:~/datalogger-client$ ls
 aeeprom  cmddb     doxdoc      logdb     socketmod    xmlparser
 asocket  contdaem  db-module  en_modules  Makefile  templatemod
 
