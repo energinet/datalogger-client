@@ -44,7 +44,7 @@ Bygning af kildekode
 
 Sådan som bygge systemet er lavet kan man bygge det hele på engang
 
-user@host:~/datalogger$ make <TAB> <TAB>
+user@host:~/datalogger-client$ make <TAB> <TAB>
 aeeprom-clean                   expat-2.0.1.tar.gz
 aeeprom-distclean               expat-clean
 aeeprom-mk                      expat-distclean
@@ -74,7 +74,7 @@ expat
 
 Her kan der så ses en oversigt over de moduler der kan bygges. For at bygge hele systemet skrives der:
 
-user@host:~/datalogger$ make all
+user@host:~/datalogger-client$ make all
 
 Når make processen er udført vil der blive genereret en tar bold kaldet:
 
