@@ -6,7 +6,7 @@ PWD := $(shell pwd)
 CROSS_COMPILE = arm-unknown-linux-gnu
 PARALLEL = 3 #Parallel MAKE (CPU cnt+1)
 
-SUBAPPS = asocket logdb xmlparser aeeprom contdaem cmddb wdt db-local db-module webcserver socketmod en_modules templatemod licon licon-mod rpfchart-arm modbusd endata enstyrerapp
+SUBAPPS = asocket logdb xmlparser aeeprom contdaem cmddb wdt db-local db-module webcserver socketmod en_modules templatemod licon licon-mod rpfchart-arm modbusd endata enstyrerapp rpclient
 
 SUBLIBS = gsoap qDecoder sqlite expat
 

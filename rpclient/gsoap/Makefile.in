@@ -1,0 +1,18 @@
+cfiles = soap*.c soap*.h *.nsmap *.wsdl *.xml
+all: liabdatalogger.wsdl copy_file
+
+install: all copy_file
+
+%.wsdl: @rpcheader@
+	cp @rpcheader@ .
+	@soapctool@ -c  @rpcheader@
+	sed 's/schemaLocation="\([a-zA-Z0-9:/.-]*\)"//g' $*.wsdl > $*_flash.wsdl
+
+# ../../i386libs/tools/soapcpp2 -c   @rpcheader@
+
+copy_file:
+	$(foreach var,$(cfiles), cp $(var) ../src;)
+
+clean:
+	-rm $(cfiles)
+	-cd ../src ; /bin/rm $(cfiles)
