@@ -45,10 +45,6 @@ subapps: $(addsuffix -mk, $(SUBAPPS))
 	$(MAKE) -j$(PARALLEL) -C  $* DB_FILE="/jffs2/bigdb.sql" DESTDIR=$(BUILDROOT) $(INSTALLSTR)
 	-rm $(BUILDROOT)/usr/lib/*.la
 
-#%-install:
-#	mkdir -p $(DEVICEROOT)
-#	$(MAKE) -C  $* DESTDIR=$(DEVICEROOT) install
-
 %-clean: 
 	$(MAKE) -C $* clean
 
@@ -95,16 +91,15 @@ distclean: $(addsuffix -distclean, $(SUBAPPS))
 	-find -name libtool -exec rm {} \;
 	-find -name ltmain.sh -exec rm {} \;
 	-find -name missing -exec rm {} \;
-	
+
 cleansrc:
 	-rm -fr  expat-2.0.1.tar.gz sqlite-autoconf-3070603.tar.gz qDecoder-10.1.1.tar.gz gsoap_2.7.16.zip
 
 #qDecoder Special Start
 qDecoder-10.1.1.tar.gz:
-	wget ftp://ftp.qdecoder.org/pub/qdecoder/qDecoder-10.1.1.tar.gz
-qDecoder: qDecoder-10.1.1.tar.gz
-	tar xvf qDecoder-10.1.1.tar.gz
-	mv qDecoder-10.1.1 qDecoder
+	wget http://downloads.sourceforge.net/project/qdecoder/qDecoder-10.1.1.tar.gz?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fqdecoder%2Ffiles%2F&ts=1368529249&use_mirror=heanet
+qDecoder:
+	svn co  https://svn.qdecoder.org/qdecoder/releases/qDecoder-10.1.1 qDecoder
 	rm qDecoder/configure
 	mkdir -p $(BUILDROOT)/usr/include $(BUILDROOT)/usr/lib
 qDecoder/configure.ac: qDecoder
