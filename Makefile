@@ -22,7 +22,11 @@ CONFIGURE_EXTRA =
 INSTALLSTR = install-strip
 LIBBASE = armlib
 
+EXTSRC=expat-2.0.1.tar.gz sqlite-autoconf-3070603.tar.gz qDecoder gsoap_2.7.16.zip 
+
 all: sublibs subapps tar
+
+getextsrc: $(EXTSRC)
 
 sublibs: $(addsuffix -lib, $(SUBLIBS))
 subapps: $(addsuffix -mk, $(SUBAPPS))
@@ -93,7 +97,7 @@ distclean: $(addsuffix -distclean, $(SUBAPPS))
 	-find -name missing -exec rm {} \;
 
 cleansrc:
-	-rm -fr  expat-2.0.1.tar.gz sqlite-autoconf-3070603.tar.gz qDecoder-10.1.1.tar.gz gsoap_2.7.16.zip
+	-rm -fr $(EXTSRC)
 
 #qDecoder Special Start
 qDecoder-10.1.1.tar.gz:
