@@ -1,0 +1,7 @@
+COPYING
+INSTALL
+modbusclient
+modbusd
+modbusutil
+stamp-h1
+version.h
