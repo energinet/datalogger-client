@@ -1,4 +1,4 @@
-# (C) LIAB ApS 2009 - 2012
+# (C) LIAB ApS 2009 - 2013
 
 SHELL = /bin/sh
 PWD := $(shell pwd)
@@ -6,9 +6,12 @@ PWD := $(shell pwd)
 CROSS_COMPILE = arm-unknown-linux-gnu
 PARALLEL = 3 #Parallel MAKE (CPU cnt+1)
 
-SUBAPPS = asocket logdb xmlparser aeeprom contdaem cmddb wdt db-local db-module webcserver socketmod en_modules templatemod licon licon-mod rpfchart-arm modbusd endata enstyrerapp rpclient
+CD_SUBAPPS = asocket logdb xmlparser aeeprom contdaem cmddb db-local db-module socketmod modbusd en_modules templatemod
+SUBAPPS = $(CD_SUBAPPS) wdt  webcserver licon licon-mod rpfchart-arm endata enstyrerapp rpclient
 
-SUBLIBS = gsoap qDecoder sqlite expat
+
+CD_SUBLIBS = sqlite expat
+SUBLIBS = $(CD_SUBLIBS) gsoap qDecoder
 
 BUILDDIR   = buildroot
 DEVICEDIR  = deviceroot
@@ -24,12 +27,14 @@ LIBBASE = armlib
 
 EXTSRC=expat-2.0.1.tar.gz sqlite-autoconf-3070603.tar.gz qDecoder gsoap_2.7.16.zip 
 
-all: sublibs subapps tar
+#build all 
+all: $(addsuffix -lib, $(SUBLIBS)) $(addsuffix -mk, $(SUBAPPS))  tar
 
+#minimum build for contdaem
+contdaemmin: $(addsuffix -lib, $(CD_SUBLIBS))  $(addsuffix -mk, $(CD_SUBAPPS)) tar
+
+#get external source files
 getextsrc: $(EXTSRC)
-
-sublibs: $(addsuffix -lib, $(SUBLIBS))
-subapps: $(addsuffix -mk, $(SUBAPPS))
 
 .PRECIOUS: %/configure
 %/configure: %/configure.ac
