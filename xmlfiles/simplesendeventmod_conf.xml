@@ -1,0 +1,13 @@
+<!--  This is a simple config file with an event sender for the  
+      LIABSG control daemon! Mikael Dich, Feb 2011
+-->
+<modules>
+     <module type="templatemod" name="midistemp" >
+       <tiktak text="First on, then off!" name="tt" interval="1000" />
+     </module>
+
+     <module type="relay" name="midisrelay" verbose="0">
+       <output device="/sys/class/leds/relay_1/brightness"/>
+       <listen event="midistemp.tt" />
+     </module>
+</modules>
