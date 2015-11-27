@@ -24,7 +24,7 @@
 
 int module_util_xml_to_time(struct timeval *time, const char *str);
 
-struct xml_item *uni_data_xml_item(struct uni_data *data, struct xml_doc *doc);
+struct xml_item *uni_data_xml_item(struct uni_data *data, struct xml_doc *doc, struct convunit *flunit);
 
 struct uni_data *uni_data_create_from_xmli(struct xml_item *item);
 

@@ -106,7 +106,7 @@ int socket_hndlr_read_get(ASOCKET_FUNC_PARAM)
 		if(!type->flunit)
 			asocket_cmd_param_add(tx_msg, type->unit);  
 		else 
-			asocket_cmd_param_add(tx_msg, type->flunit->lunit);  
+			asocket_cmd_param_add(tx_msg, type->flunit->unit_out);  
 		
 		sconn->event_next = sconn->event_next->next;
     }

@@ -239,6 +239,8 @@ struct sevent *sevent_create(struct module_base *base, struct xml_item *item)
 {
     const char *etype = xml_item_get_attr(item, "ename");
     const char *unit = xml_item_get_attr(item, "unit");
+    const char *flagstr = xml_item_get_attr(item, "flags");
+    unsigned long flags =  event_type_get_flags(flagstr, base->flags);;
     const char *text = xml_item_get_text(item);
     struct sevent *new = malloc(sizeof(*new));
     assert(new);
@@ -251,7 +253,7 @@ struct sevent *sevent_create(struct module_base *base, struct xml_item *item)
 
     new->name = strdup(etype);
 
-    new->event_type = event_type_create(base, new, etype, unit , text, base->flags);
+    new->event_type = event_type_create(base, new, etype, unit , text, flags);
 
     new->event_type->read  = sevent_eread;
     new->event_type->write = sevent_ewrite;
@@ -391,7 +393,7 @@ int sevent_ewrite(struct event_type *event, struct uni_data *data)
 
     xml_item_add_attr(doc, item, "ename" , sevt->name);
 
-    if(!xml_item_add_child(doc, item, uni_data_xml_item(data, doc))){
+    if(!xml_item_add_child(doc, item, uni_data_xml_item(data, doc, event->type->flunit))){
 	PRINT_ERR("could not create data");
 	retval = -EFAULT;
 	goto out;
@@ -451,15 +453,41 @@ int tag_etype(struct spxml_cntn *cntn, struct xml_item *item )
     sevt =  sevent_create(base, item);
 
     this->sevts = sevent_add(this->sevts, sevt);
+	
+    if(seq_attr){
+		unsigned long seq; 
+		sscanf(seq_attr, "%lu", &seq);
+		cntntxrx_rxseq(&this->txrx, seq, NULL);
+		fprintf(stderr, "received seq %lu\n", seq);
+    } 
+
+    return 0;
+}
+
+int tag_etypes(struct spxml_cntn *cntn, struct xml_item *item )
+{
+    struct mastersoxml_object *this = (struct mastersoxml_object *)cntn->userdata;
+    struct module_base* base = &this->base;
+    const char *seq_attr = xml_item_get_attr(item, "seq");
+
+    struct xml_item *ptr = item->childs;
+    
+    while(ptr){ //NOT TESTED
+	tag_etype(cntn, ptr );
+	ptr->ptr->next;
+    }
 
     if(seq_attr){
 	unsigned long seq; 
 	sscanf(seq_attr, "%lu", &seq);
 	cntntxrx_rxseq(&this->txrx, seq, NULL);
-	fprintf(stderr, "received seq %lu\n", seq);
-    } 
+	fprintf(stderr, "received fin seq %lu (%s)\n", seq, seq_attr);
+    } else {
+	fprintf(stderr, "received fin with no seq\n");
+    }
 
     return 0;
+    
 }
 
 
@@ -530,9 +558,10 @@ int tag_err(struct spxml_cntn *cntn, struct xml_item *item )
 }
 
 struct tag_handler tag_handlers[] = { 
-    { "etype" ,  tag_etype } ,
+    { "etypes" ,  tag_etypes } ,
+    { "etype" ,  tag_etyp } ,
+    { "fin" ,  tag_fin } ,
     { "upd" , tag_upd },
-    { "fin" , tag_fin },
     { "err" , tag_err },
     { NULL ,  NULL }   
 };
@@ -605,76 +634,6 @@ int socket_clt_rxtx(struct mastersoxml_object* this, const char *select)
 
  
 
-
-
-
-
-
-int socket_clt_connect(struct sockaddr *skaddr){
-    
-    int len;
-    int retval;
-    int client_fd;
-    int errors = 0;
-
-
-    while(errors < 100){
-
-	/* open socket */
-	if((client_fd = socket(skaddr->sa_family, SOCK_STREAM, 0))<0){
-	    fprintf(stderr, "server socket returned err: %s\n", strerror(errno));
-	    errors++;
-	    sleep(1);
-	    continue;
-	} 
-	
-	len = asocket_addr_len(skaddr);
-	
-	retval = connect(client_fd, skaddr, len);
-
-	if(retval < 0){
-	    fprintf(stderr, "connect error: %s (%d)\n",strerror(errno), errno);
-	    fprintf(stderr, "closing socket\n");
-	    close(client_fd);
-	    errors++;
-	    sleep(1);
-	    continue;
-	} else {
-	    break;
-	}
-
-    }
-    
-    if(errors >= 100)
-	return -1;
-
-
-
-    if(skaddr->sa_family == AF_INET){
-        int val;
-        val = 10; /* 10 sec before starting probes */
-        retval = setsockopt (client_fd, SOL_SOCKET, SO_KEEPALIVE , &val, sizeof (val));
-        //   printf("SO_KEEPALIVE ret %d\n", retval);
-        
-        val = 10; /* 10 sec before starting probes */
-        retval = setsockopt (client_fd, SOL_TCP, TCP_KEEPIDLE, &val, sizeof (val));
-        // printf("TCP_KEEPIDLE ret %d\n", retval);
-        
-        val = 2; /* 2 probes max */
-        retval = setsockopt (client_fd, SOL_TCP, TCP_KEEPCNT, &val, sizeof (val));
-        // printf("TCP_KEEPCNT ret %d\n", retval);
-        
-        val = 10; /* 10 seconds between each probe */
-        retval = setsockopt (client_fd, SOL_TCP, TCP_KEEPINTVL, &val, sizeof (val));
-        // printf("TCP_KEEPINTVL ret %d\n", retval);
-    }
-
-    return client_fd;
-    
-
-}
-
-
 int module_init(struct module_base *base, const char **attr)
 {
     int client_fd = -1;
@@ -702,7 +661,8 @@ int module_init(struct module_base *base, const char **attr)
     }
 
     //Open socket
-    client_fd = socket_clt_connect(skaddr);
+    client_fd =   asocket_clt_cnt_fd(skaddr,100);
+
      if(client_fd<0){
 	PRINT_ERR("Could not connect to slave");
 	return -1;

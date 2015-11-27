@@ -76,6 +76,9 @@ AC_CHECK_HEADER(xml_serialize.h,, AC_MSG_ERROR(xml_serialize.h not found try usi
 AC_CHECK_LIB(xmlpar, parse_xml_file,,AC_MSG_ERROR(xmlpar not found try using --with-libraries))
 AC_CHECK_LIB(xmlpar, xml_item_create,,AC_MSG_ERROR(xmlpar (serialize) not found try using --with-libraries))
 
+AC_CHECK_HEADER(xml_cntn.h,, AC_MSG_ERROR(xml_cntn.h not found try using --with-includes ))
+AC_CHECK_LIB(xmlcntn, spxml_cntn_create,,AC_MSG_ERROR(xmlcntn (serialize) not found try using --with-libraries))
+
 
 AC_CHECK_HEADER(aeeprom.h,, AC_MSG_ERROR(aeeprom.h not found try using --with-includes ))
 AC_CHECK_LIB(aeeprom, aeeprom_get_entry,,AC_MSG_ERROR(aeeprom not found try using --with-libraries))

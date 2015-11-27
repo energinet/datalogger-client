@@ -31,20 +31,19 @@
 #include <assert.h>
 #include <asocket_trx.h>
 #include <asocket_server.h>
-#include "xmlcntn.h"
+#include "xml_cntn.h"
 #include "xmlcontdaem.h"
+#include <xml_cntn_server.h>
 
 #define DEFAULT_PORT 6527
+#define DEFAULT_INSCNT 10
+
 
 
 struct soxml_object{
     struct module_base base;
-    struct socket_data sparm;
-    struct spxml_cntn *cntns;
-    pthread_mutex_t cntn_mutex;
-    pthread_t s_thread;  
+    struct xml_cntn_server *server;
     int echo_write;
-    int port;
 };
 
 
@@ -53,22 +52,13 @@ struct soxml_object* module_get_struct(struct module_base *module){
     return (struct soxml_object*) module;
 }
 
-
-
-
-int spxml_cntn_tx_add_upd(struct spxml_cntn *cntn, struct module_event *event, const char *seq)
+int spxml_cntn_tx_add_upd(struct xml_cntn_server *server, struct spxml_cntn *cntn, struct module_event *event, const char *seq)
 {
     int retval = 0;
     struct xml_item *item = NULL;
     struct xml_doc* doc = NULL;
-
-    if(!cntn)
-	return -EFAULT;
-    
-    if(cntn->run==0)
-	return -EFAULT;
-
-    doc = spxml_cntn_tx_add_reserve(cntn);
+    int dbglev = (cntn)?cntn->dbglev:server->dbglev;
+    doc =  xml_doc_create(10*1024, dbglev);
     
     if(!doc){
 	return -EFAULT;
@@ -81,20 +71,14 @@ int spxml_cntn_tx_add_upd(struct spxml_cntn *cntn, struct module_event *event, c
 	goto out;
     }
 
-    if(seq){
-	xml_item_add_attr(doc, item, "seq", xml_doc_text_dup(doc, seq,0));
-	fprintf(stderr, "sending seq %s\n", seq);
-    }    
+    if(cntn)
+	spxml_cntn_send(cntn, item, seq);
+    else if(server)
+	xml_cntn_server_broadcast(server, item);
 
-    if(!xml_item_add_child(doc, doc->first, item)){
-	PRINT_ERR("could not add child");
-	retval = -EFAULT;
-	goto out;
-    }
-
+    
   out:
-
-    spxml_cntn_tx_add_commit(cntn);
+    xml_doc_delete(doc);
 
     return retval;
 }
@@ -102,43 +86,40 @@ int spxml_cntn_tx_add_upd(struct spxml_cntn *cntn, struct module_event *event, c
 
 
 
-int tag_list(struct spxml_cntn *cntn, struct xml_item *item )
+int tag_list(struct spxml_cntn *cntn, struct xml_item *rxitem )
 {
 
     struct soxml_object *this = (struct soxml_object *)cntn->userdata;
     struct event_search search;
     struct event_type *etype;
-    struct xml_doc* doc = spxml_cntn_tx_add_reserve(cntn);
-    const char *seq_attr = xml_item_get_attr(item, "seq");
-    const char *select_attr = xml_item_get_attr(item, "select");
+    struct xml_doc* doc = xml_doc_create(100*1024, this->base.verbose);
+    //spxml_cntn_tx_add_reserve(cntn);
+    const char *seq_attr = xml_item_get_attr(rxitem, "seq");
+    const char *select_attr = xml_item_get_attr(rxitem, "select");
     int retval = 0;
+    struct xml_item *txitem ;
 
     if(!doc){
-	PRINT_ERR("could not get doc");
+	PRINT_ERR("could not create doc");
 	return -EFAULT;
     }
+
+    txitem = xml_item_create(doc, "etypes");
 
     event_search_init(&search, this->base.first, select_attr, FLAG_ALL);
 
     while(etype = event_search_next(&search)){
-	struct xml_item *item = event_type_xml(etype, doc);
-	if(!xml_item_add_child(doc, doc->first, item)){
-	    PRINT_ERR("could not add item");
-	    break;
-	}
+		struct xml_item *item = event_type_xml(etype, doc);
+		if(!xml_item_add_child(doc, txitem, item)){
+			PRINT_ERR("could not add item");
+			break;
+		}
     }
 
-    if(seq_attr){
-	struct xml_item *item = xml_item_create(doc, "fin");
-	xml_item_add_attr(doc, item, "seq", xml_doc_text_dup(doc, seq_attr,0));
-
-	if(!xml_item_add_child(doc, doc->first, item)){
-	    PRINT_ERR("could not add item");
-	}
-    }
-
+    spxml_cntn_send(cntn, txitem, seq_attr);
+      
   out:
-    spxml_cntn_tx_add_commit(cntn);
+    xml_doc_delete(doc);
     
     return retval;
 }
@@ -152,8 +133,6 @@ int tag_read(struct spxml_cntn *cntn, struct xml_item *item )
     const char *etype_attr = xml_item_get_attr(item, "ename");
     const char *seq_attr = xml_item_get_attr(item, "seq");
 
-    fprintf(stderr, "read %s %s\n", etype_attr, seq_attr );
-    
     if(!etype_attr){
 	snprintf(errbuf, sizeof(errbuf), "no etype attribut in tag %s", item->name);
 	goto err_out;
@@ -172,7 +151,7 @@ int tag_read(struct spxml_cntn *cntn, struct xml_item *item )
 	goto err_out;
     }
 
-    if(spxml_cntn_tx_add_upd(cntn, event, seq_attr)<0)
+    if(spxml_cntn_tx_add_upd(NULL, cntn, event, seq_attr)<0)
 	PRINT_ERR("Could not add event");  
     module_event_delete(event);
 
@@ -211,7 +190,7 @@ int tag_write(struct spxml_cntn *cntn, struct xml_item *item )
 	goto err_out;
     }
 
-    etype = module_base_get_event(base->first, etype_attr, FLAG_SHOW );
+    etype = module_base_get_event(base->first, etype_attr, FLAG_ALL );
     if(!etype){
 	snprintf(errbuf, sizeof(errbuf), "unknown etype %s", etype_attr);
 	goto err_out;
@@ -226,7 +205,7 @@ int tag_write(struct spxml_cntn *cntn, struct xml_item *item )
     if(this->echo_write){
 	struct module_event *event = event_type_read(etype);
 	if(event){
-	    if(spxml_cntn_tx_add_upd(cntn, event,seq_attr )<0)
+	    if(spxml_cntn_tx_add_upd(NULL, cntn, event,seq_attr )<0)
 		PRINT_ERR("Could not add event"); 
 
 
@@ -280,129 +259,42 @@ struct xml_tag module_tags[] = {
     { "" , "" , NULL, NULL, NULL }
 };
     
-
-
-
-void *xsckt_srv_loop(void *param) 
-{ 
-    struct socket_data *this = (struct socket_data*)param;
-    struct soxml_object* mod = (struct soxml_object*)this->appdata;
-    struct sockaddr_in  remote; //Todo
-    int client_fd;
-   
-    int retval ;
-    int optval = 1;          /* setsockopt */
-    socklen_t t;
-    int len;
-    int errors = 0;
-
-    while(errors < 100){
-
-    /* open socket */
-    if((this->socket_fd = socket(this->skaddr->sa_family, SOCK_STREAM, 0))<0){
-        PRINT_ERR("server socket returned err: %s", strerror(errno));
-	errors++;
-	sleep(1);
-        continue;
-    }
-     
-    if (setsockopt(this->socket_fd, SOL_SOCKET, SO_REUSEADDR,
-                   (const void *)&optval , sizeof(int)) < 0){
-        PRINT_ERR( "server setsockopt returned err: %s", strerror(errno));
-        retval = -errno;
-        goto out;
-    }
-
-    len =  asocket_addr_len(this->skaddr);
-
-    if(bind(this->socket_fd, this->skaddr, len)<0){
-        PRINT_ERR("server bind returned err: %s", strerror(errno));
-        retval = -errno;
-        goto out;
-    }
-    
-    if(listen(this->socket_fd, 1024)<0){
-        PRINT_ERR("server listen returned err: %s", strerror(errno));
-        retval = -errno;
-        goto out;
-    }
-
-    PRINT_DBG(this->dbglev, "Socket opened...");
-
-    while(this->run){
-        struct asocket_con* sk_con;
-        t = sizeof(remote);
-
-        if((client_fd = accept(this->socket_fd, (struct sockaddr *)&remote, &t))<0){
-	    PRINT_ERR( "accept returned err: %s", strerror(errno));
-            retval = -errno;
-            goto out;
-        }
-     
-	PRINT_DBG(this->dbglev, "Socket: client connected...");
-
-	if(pthread_mutex_lock(&mod->cntn_mutex)!=0)
-	    goto out;
-	mod->cntns = spxml_cntn_add(mod->cntns, spxml_cntn_create(client_fd, tag_handlers, (void*)mod, this->dbglev));
-
-	PRINT_DBG(this->dbglev, "Socket connection cleaning");
-	mod->cntns = spxml_cntn_clean(mod->cntns);
-	PRINT_DBG(this->dbglev, "Socket connection cleaned");
-	pthread_mutex_unlock(&mod->cntn_mutex);
-	
-	PRINT_DBG(this->dbglev, "Socket: Connection closed");
-
-    }
-    }
-  out:
-    close(this->socket_fd);
-    this->socket_fd = -1;
-    return NULL;
-
-}
-
-
-
-struct sockaddr *asocket_addr_create_in(const char *ip, int port);
-
-
-
-
-int module_server_start( struct soxml_object* this)
-{
-    
-    int retval = 0;
-    struct socket_data *param =  &this->sparm;
-    fprintf(stderr, "starting first stread\n");
-
-    param->appdata = (void*)this;
-    param->skaddr = asocket_addr_create_in(NULL,  this->port);
-    param->cmds = NULL;
-    param->dbglev = this->base.verbose;
-    param->run = 1;
-    if((retval = pthread_create(&this->s_thread, NULL, xsckt_srv_loop, param))<0){  
-	PRINT_ERR("Failure starting loop in %p: %s ", this, strerror(retval));  
-	return retval;
-    }      
-
-    return 0;
-
-}
-
 int module_init(struct module_base *base, const char **attr)
 {
     struct soxml_object* this = module_get_struct(base);
     
+    int inscnt =  get_attr_int(attr, "instances",  DEFAULT_INSCNT);
+    int port = get_attr_int(attr, "port", DEFAULT_PORT); ;
 
-    this->echo_write = get_attr_int(attr, "echo_write", 1); ;
+    this->echo_write = get_attr_int(attr, "echo_write", 1); ;  
     
-    pthread_mutex_init(&this->cntn_mutex, NULL);
+    if(port < 0 || port > 0xffff){
+	PRINT_ERR("Invalid port: %d", port);
+	return -1;
+    }	
 
-    this->port = get_attr_int(attr, "port", DEFAULT_PORT); ;
+    if(inscnt<=0){
+	PRINT_ERR("Invalid instance count: %d", inscnt);
+	return -1;
+    }
+    
+    this->server = xml_cntn_server_create((void*)this, port, inscnt, tag_handlers, base->verbose);
 
-    module_server_start(this);
+    if(!this->server){
+	PRINT_ERR("Could not create server object");
+	return -1;
+    }
+	
+    if(xml_cntn_server_start(this->server)<0){
+	PRINT_ERR("Could not start server object");
+	goto err_out;
+    }
 
     return 0;
+    
+ err_out:
+    xml_cntn_server_delete(this->server);
+    return -1;
 
 }
 
@@ -411,12 +303,8 @@ void module_deinit(struct module_base *module)
 {
     struct soxml_object* this = module_get_struct(module);
 
-    //asckt_srv_close(&this->param);
-    
-    pthread_mutex_destroy(&this->cntn_mutex);
-    
-    spxml_cntn_delete(this->cntns);
-
+    xml_cntn_server_stop(this->server);
+    modemd_server_delete(this->server);
 
     return;
 }
@@ -429,28 +317,10 @@ int event_handler_all(EVENT_HANDLER_PAR)
     struct spxml_cntn *cntn = ( struct spxml_cntn*)handler->objdata;
     struct spxml_cntn *ptr = NULL;
     int retval = 0;
+    struct timespec abs_time;
 
-//    PRINT_MVB(handler->base, "receive event %s.%s \n", event->source->name, event->type->name);
-
-    if((retval = pthread_mutex_lock(&this->cntn_mutex))!=0){
-	if(retval != EBUSY)
-	    return -EFAULT;
-	fprintf(stderr, "this->cntn_mutex is locked");
-	if(pthread_mutex_lock(&this->cntn_mutex)!=0)
-	    return -EFAULT;
-    }
-
-    ptr = this->cntns;
-    while(ptr){
-	if(spxml_cntn_tx_add_upd(ptr, event, NULL)<0)
-	    PRINT_DBG(handler->base->verbose >=2, "Could not add event"); ;
-	ptr = ptr->next;
-    }
-    pthread_mutex_unlock(&this->cntn_mutex);
-//    PRINT_MVB(handler->base, "added event %s.%s \n", event->source->name, event->type->name);
-    //  spxml_cntn_tx(this->cntns);
-    
-//    PRINT_MVB(handler->base, "send event %s.%s \n", event->source->name, event->type->name);
+    if(spxml_cntn_tx_add_upd(this->server, NULL, event, NULL)<0)
+	PRINT_DBG(handler->base->verbose >=2, "Could not add event"); ;
     
     return 0;
 
@@ -478,8 +348,6 @@ struct event_handler *module_subscribe(struct module_base *module, struct module
 
 
 }
-
-
 
 struct module_type module_type = {            
     .name       = "xsocket",                   

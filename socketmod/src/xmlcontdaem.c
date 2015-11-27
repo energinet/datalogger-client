@@ -54,11 +54,10 @@ struct xml_item *module_event_xml_upd(struct  module_event* event, struct xml_do
 
     xml_item_add_attr(doc, upd_item, "ename", xml_doc_text_printf(doc, "%s.%s", event->source->name, event->type->name));
     xml_item_add_attr(doc, upd_item, "time", xml_doc_text_printf(doc,"%u.%3.3u", event->time.tv_sec, event->time.tv_usec/1000 ));
-    if(!xml_item_add_child(doc, upd_item, uni_data_xml_item(event->data, doc))){
+    if(!xml_item_add_child(doc, upd_item, uni_data_xml_item(event->data, doc, event->type->flunit))){
 	PRINT_ERR("could not create data");
 	return NULL;
     }
-       
 
     return upd_item;
 }
@@ -67,6 +66,9 @@ struct xml_item *event_type_xml(struct event_type *etype, struct xml_doc *doc)
 {
     struct xml_item *item = xml_item_create(doc, "etype");
     
+	char tmpbuf[128];
+	memset(tmpbuf, 0 , sizeof(tmpbuf));
+
     if(!item){
 	PRINT_ERR("item is NULL");
 	return NULL;
@@ -74,18 +76,25 @@ struct xml_item *event_type_xml(struct event_type *etype, struct xml_doc *doc)
 
     xml_item_add_attr(doc, item, "ename", xml_doc_text_printf(doc, "%s.%s", etype->base->name, etype->name));
     if(etype->unit)
-	xml_item_add_attr(doc, item, "unit", xml_doc_text_printf(doc, "%s", etype->unit));
+		xml_item_add_attr(doc, item, "unit", xml_doc_text_printf(doc, "%s", etype->unit));
     if(etype->write)
 	xml_item_add_attr(doc, item, "write","true");
-    if(etype->hname)
-	xml_item_add_text(doc, item, xml_doc_text_printf(doc, "%s", etype->hname), 0);
 
+    xml_item_add_attr(doc, item, "flags", xml_doc_text_dup(doc,event_type_get_flag_str(etype->flags, tmpbuf),0));
+	
+    if(etype->hname)
+		xml_item_add_text(doc, item, xml_doc_text_printf(doc, "%s", etype->hname), 0);
+
+    xml_item_add_attr(doc, item, "read", (etype->read)?"true":"false");
+    //xml_item_add_attr(doc, item, "write", (etype->write)?"true":"false");
+    
+	
     return item;
 }
 
 
 
-struct xml_item *uni_data_xml_item(struct uni_data *data, struct xml_doc *doc)
+struct xml_item *uni_data_xml_item(struct uni_data *data, struct xml_doc *doc, struct convunit *flunit)
 {
     struct xml_item *item = xml_item_create(doc, "data");
     char value[256];
@@ -94,7 +103,7 @@ struct xml_item *uni_data_xml_item(struct uni_data *data, struct xml_doc *doc)
 	PRINT_ERR("item is NULL");
 	return NULL;
     }
-
+/*
     if(data->type != DATA_FLOAT)
 	xml_item_add_attr(doc,item, "typ", 
 			  uni_data_str_type(data->type));
@@ -102,8 +111,10 @@ struct xml_item *uni_data_xml_item(struct uni_data *data, struct xml_doc *doc)
     if(data->mtime)
 	xml_item_add_attr(doc,item, "ms", 
 			  xml_doc_text_printf(doc, "%d", data->mtime));
-    
-    len = uni_data_get_txt_value(data, value, sizeof(value));
+ 
+	len = uni_data_get_txt_value(data, value, sizeof(value));
+*/
+	len = uni_data_get_txt_fvalue(data, value, sizeof(value), flunit);
 
     item->text =  xml_doc_text_dup(doc, value, len);
 

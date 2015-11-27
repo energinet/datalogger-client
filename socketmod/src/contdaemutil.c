@@ -76,13 +76,13 @@ int main(int narg, char *argp[])
     int print_events = 0;
 	char *write_value = NULL;
 	char *ename = NULL;
-	char *flags = NULL;
+	const char *flags = "all";
 	struct asocket_con* sk_con;
 	int dbglev = 0;
 	int retval = 0;
 	char *read_ename = NULL;
 
-    while ((optc = getopt(narg, argp, "e:g:s:f::ld::h")) > 0) {
+    while ((optc = getopt(narg, argp, "e:g:s:f:ld::h")) > 0) {
         switch (optc){ 
 		  case 'e':
 			ename = strdup(optarg);
@@ -94,7 +94,7 @@ int main(int narg, char *argp[])
 			write_value = strdup(optarg);
 			break;
 		  case 'f':
-			flags = strdup(optarg);
+			flags = optarg;
 			break;
           case 'l': // list db events 
             print_events = 1;
