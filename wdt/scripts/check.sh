@@ -1,8 +1,11 @@
-#!/bin/bash +x
+#!/bin/bash -x
 
+LOGGER="logger -t 'watchdog' -p"
 
-#echo "Watchdog check $1" > /dev/console
 UPTIME=`cat /proc/uptime |  cut -d '.' -f1`
+RESETFILE=/tmp/wdtreset
+RETVAL=0
+
 #===================================================================
 check_process_run()	# Check if a process of the name Arg_1 is running
 #===================================================================
@@ -22,72 +25,60 @@ check_process_run()	# Check if a process of the name Arg_1 is running
 
 }
 
-#===================================================================
-check_uptimereset()	# If uptime is to low
-#===================================================================
-{
-    DELAY=$1
-    UPTIME=`cat /proc/uptime |  cut -d '.' -f1`
-    RESETFILE=/tmp/wdtreset
-   
-    if [ -f $RESETFILE ] ; then 
+#========== Make sure not to check for these things every 20 seconds ======
+if [ -f $RESETFILE ] ; then 
 	RESETUPTIME=`cat $RESETFILE`
-    else 
+else 
 	RESETUPTIME=0;
-    fi 
+fi
 
-    RESETUPTIME=`expr $DELAY + $RESETUPTIME`
-    
-    if [ $UPTIME -lt $RESETUPTIME ] ; then 
-	echo "uptime to low ($UPTIME<$RESETUPTIME): no check" > /dev/console
-	exit 0 
-    fi
+RESETUPTIME=`expr 1200 + $RESETUPTIME`
 
-    echo $UPTIME > $RESETFILE
+if [ $UPTIME -lt $RESETUPTIME ]; then
+	exit 0
+else
+	echo $UPTIME > $RESETFILE
+fi
 
-    return 1;
-}
+#============================== Start checks ==============================
 
+
+#Check if the log has been written within the previous 600 seconds
 if ! logdbutil -w600 ; then
-    check_uptimereset 1200
     echo "Watchdog check db write failed" > /dev/console
     killall contdaem 
+	RETVAL=1
     logdbutil -S "watchdog killed contdaem"
+	$LOGGER warning "killed contdaem due to no updates for more than 600 seconds"
 fi
 
 
-if ! logdbutil -b3600 ; then # If no log is transmittet for one hour, then restart rpclient.
+if ! logdbutil -b3600 ; then # If no log is transmitted for one hour, then restart rpclient.
     echo "Watchdog check db backup failed" > /dev/console
-    check_uptimereset 1200
 
     if [ `check_process_run rpclient` == "running" ] ; then 
-	killall liabconnect -2 
-	echo "liabconnect interrupted" > /dev/console
-	sleep 2
-	poff -a
-	echo "ppp off" > /dev/console
-	killall udhcpd 
-	killall rpclient -2
-	echo "rpclient interrupted" > /dev/console
-	logdbutil -S "watchdog interrupted rpclient"
-	echo $UPTIME > $RESETFILE
+		killall liabconnect -2 
+		echo "liabconnect interrupted" > /dev/console
+		sleep 2
+		poff -a
+		echo "ppp off" > /dev/console
+		killall udhcpd 
+		killall rpclient -2
+		echo "rpclient interrupted" > /dev/console
+		logdbutil -S "watchdog interrupted rpclient"
     else
-	echo "rpclient not running" > /dev/console
+		echo "rpclient not running" > /dev/console
     fi
+	RETVAL=2
 fi
 
-if ! logdbutil -b86400 ; then # If no log is transmittet for three days, then reboot.
+if ! logdbutil -b86400 ; then # If no log is transmitted for 24 hours, then reboot.
     echo "Watchdog check db backup failed for 24 hours" > /dev/console
-
-    if [ $UPTIME -gt 86400 ] ; then 
-	logdbutil -S "no transmitted data watchdog killed system "
-	echo "Rebooting system (uptime $UPTIME)" > /dev/console
-	sleep 10
-	reboot -f
-	exit 0
-    fi
+	logdbutil -S "no transmitted data, requesting watchdog reboot"
+	echo "Requesting reboot (uptime $UPTIME)" > /dev/console
+	RETVAL=-2
 fi
 
-rm /var/log/watchdog/test-bin.*
+rm -f /var/log/watchdog/*
 
-exit 0
+exit $RETVAL

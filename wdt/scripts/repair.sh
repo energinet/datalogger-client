@@ -1,5 +1,6 @@
 #!/bin/bash 
 WDTWAITFILE="/tmp/wdt_wait"
+RESETFILE="/tmp/wdtreset"
 INSPECTLIST="liabconnect contdaem httpd modbusd"
 echo "Watchdog repair $1" > /dev/console
 logfile=/tmp/wdt_repair.log
@@ -12,7 +13,6 @@ logfile=/tmp/wdt_repair.log
 
 #
 date > $logfile
-
 
 
 if [ -f $WDTWAITFILE ] ; then 
@@ -31,7 +31,6 @@ if [ -f $WDTWAITFILE ] ; then
 	echo "Wait is maxed" >> $logfile
     fi
 fi
-
 
 
 #===================================================================
@@ -87,22 +86,19 @@ inspect_process()	# Check if a process of the name Arg_1 is running
     echo "inspecting: $INSPECT"  >> $logfile
     #check if process is runnign 
     if [ `check_process_run $INSPECT` == "running" ] ; then
-	echo "$INSPECT is running" >> $logfile
-	echo "running"
-	return 
+		echo "running"
+		return 
     fi
 
     #try restarting process
     echo "$INSPECT is not running" >> $logfile
     
     if [ `restart_process $INSPECT` == "restarted" ] ; then
-        echo "$INSPECT was restarted" >> $logfile
-	logdbutil -S "$INSPECT restarted"
+		logdbutil -S "$INSPECT restarted"
         echo "restarted"
 	return 
     fi
     
-    echo "error restarting $INSPECT" >> $logfile
     logdbutil -S "$INSPECT dead"
     echo "dead"
     return 
@@ -118,7 +114,7 @@ for INSPECT in $INSPECTLIST ; do
 	    echo "$INSPECT is not running" >> $logfile
 	    ;;
 	"restarted")
-	    echo "$INSPECT is restarted" >> $logfile
+	    echo "$INSPECT was restarted" >> $logfile
 	    restarted=1
 	    ;;
 	*          )
@@ -128,24 +124,24 @@ for INSPECT in $INSPECTLIST ; do
 done
 
 if [ $restarted -eq 1 ] ; then
-     retval=0
+	#Something was restarted, check again
+	rm $RESETFILE
+	retval=0
 fi
 
-# write return value
-echo "returning $retval" >> $logfile
 
-# Notyfy console in case of reboot 
-if [ $retval ] ; then
+# Notify console in case of reboot 
+if ! [ $retval -eq 0 ] ; then
+	if [ `cat /proc/uptime |  cut -d '.' -f1` -lt 3600 ] ; then 
+		echo "Uptime too low for reboot" > /dev/console
+		exit 0 
+	fi
     echo "Watchdog rebooting system:" > /dev/console
     cat $logfile  > /dev/console
+	sleep 1;
+	reboot -f
 fi
 
-if [ `cat /proc/uptime |  cut -d '.' -f1` -lt 600 ] ; then 
-    echo "uptime to low" > /dev/console
-    exit 0 
-fi
+rm -f /var/log/watchdog/*
 
-rm /var/log/watchdog/test-bin.*
-
-
-exit $retval
+exit 0
