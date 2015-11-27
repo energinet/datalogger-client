@@ -50,18 +50,22 @@ int start_module(XML_START_PAR){
     struct modules *modules = (struct modules*)data;
     struct module_base *new = NULL;
     const char *name = get_attr_str_ptr(attr, "name");
+    struct module_type *type = module_type_get_by_name(modules->types,get_attr_str_ptr(attr, "type"));
+
+    if(!type){
+		PRINT_ERR("module type \"%s\" unknown", get_attr_str_ptr(attr, "type"));
+		return -1;
+    }
 
     if(load_list_check(modules->loadlist, name,get_attr_str_ptr(attr, "loadlist"))==0){
 	PRINT_ERR("Not loading \"%s\"", name);
 	return 0;
     }
-
-    
-    new = module_base_create(modules, module_type_get_by_name(modules->types,get_attr_str_ptr(attr, "type")), 
-                                                 get_attr_str_ptr(attr, "name"), attr);
+   
+    new = module_base_create(modules, type, name, attr);
 
     if(!new){
-        PRINT_ERR("module type unknown \"%s\"", get_attr_str_ptr(attr, "type"));
+        PRINT_ERR("Init function for '%s' returned fault", name);
         return -1;
     }
      
@@ -188,6 +192,7 @@ int module_base_run(struct module_base* base)
 struct module_base* module_base_create(struct modules *modules, struct module_type* type, const char *name, const char** attr){
 
     struct module_base* new = NULL;
+    char flagstr[128];
     int retval = -EFAULT;
     if(!type){
         PRINT_ERR("no type"); 
@@ -200,7 +205,7 @@ struct module_base* module_base_create(struct modules *modules, struct module_ty
     }
 
     if(type->type_struct_size < sizeof(struct module_base)){
-        PRINT_ERR("size < base size (%d < %d)", type->type_struct_size, sizeof(struct module_base));
+        PRINT_ERR("size < base size (%d < %zd)", type->type_struct_size, sizeof(struct module_base));
         return NULL;
     }
 
@@ -242,7 +247,7 @@ struct module_base* module_base_create(struct modules *modules, struct module_ty
 
     new->flags =  event_type_get_flags( get_attr_str_ptr(attr, "flags"), new->flags);
 
-    PRINT_MVB(new, "created");
+    PRINT_MVB(new, "created flags with %lx: %s", new->flags, event_type_get_flag_str( new->flags, flagstr) );
 
     return new;
     

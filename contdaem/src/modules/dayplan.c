@@ -301,7 +301,7 @@ int module_init(struct module_base *base, const char **attr)
 {
     struct dayplan_object* this = module_get_struct(base);
     
-    this->tick = module_tick_create(base->tick_master,  1, TICK_FLAG_SECALGN1);
+    this->tick = module_tick_create(base->tick_master,  base, 1, TICK_FLAG_SECALGN1);
 
     this->event_type =  event_type_create_attr(base,NULL,attr);
     base->event_types = event_type_add(base->event_types, this->event_type);
@@ -324,23 +324,19 @@ void* module_loop(void *parm)
 { 
     struct module_base *base = ( struct module_base *)parm;
     struct dayplan_object* this = module_get_struct(base);
-
-    int retval;
     struct timeval now;
+
     base->run = 1;
     PRINT_MVB(base, "start loop\n");
 
     while(base->run){ 
-	module_tick_wait(this->tick, &now);
-	struct planitem* current = planitem_get_cuttent(this->plan,now.tv_sec);
-	int diff = 0;
-	/* if(this->last_upd.tv_sec != 0) */
-	/*     diff = modutil_timeval_diff_ms(&now, &this->last_upd); */
-	    
-	if(current != this->current){
-	    dayplan_send_event(this, &now, current->outval);
-	    this->current = current;
-	}
+		module_tick_wait(this->tick, &now);
+		struct planitem* current = planitem_get_cuttent(this->plan,now.tv_sec);
+		
+		if(current != this->current){
+			dayplan_send_event(this, &now, current->outval);
+			this->current = current;
+		}
 	    
     } 
     

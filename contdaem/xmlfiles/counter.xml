@@ -1,0 +1,22 @@
+<modules>
+  <module type="cmddb" name="cmdvars" verbose="0" flags="nolog">
+    <var name="adjpw"  datatype="float" />
+  </module>
+    <module type="keyinput" name="inputs"  verbose="0" key_start="0x104" flags="nolog">
+    <input device="/dev/input/event0"/>
+    <setup interval="1" />
+    <count text="El varmepumpe" unit="_J" upp="3600" name="pwhp"  key_code="0x106"  />
+    <trigger text="Test knap" unit="" name="button" key_code="0x106" flags="nolog"/>
+  </module>
+  <module type="counter" name="counters" path="/jffs2/count" interval="10">
+    <counter name="power" text="El varmepumpe count"  unit="kWh" event="inputs.pwhp" setevt="cmdvars.adjpw" />
+  </module>
+  <module type="accumulate" name="acc" interval="300" verbose="0" >
+    <acc event="counters.*" output="max"/>
+  </module>
+  <module type="dblogger" name="dblogger" verbose="0">
+    <log event="*.*"/>
+  </module>
+  <module type="socket" name="socket" verbose="0" />
+</modules>
+

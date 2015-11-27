@@ -45,7 +45,7 @@ int module_type_load_file(const char *path, struct module_type **types){
     
     if(!handle){
         printf("handle == NULL dlerror %s\n", dlerror() );
-        return 0;
+        return -1;
     }
 
     type_loader = dlsym(handle, "module_get_type");
@@ -94,7 +94,8 @@ int module_type_load_all(const char *path, struct module_type **types){
         {
             int len = strlen(dir->d_name);
             if(len > strlen(FILE_SUFF)){
-                if(strcmp(dir->d_name + (len - strlen(FILE_SUFF)), FILE_SUFF)==0){
+				int suffpos = (len - strlen(FILE_SUFF));
+				if(strcmp(dir->d_name + suffpos, FILE_SUFF)==0){
                     char fpath[512];
                     sprintf(fpath,"%s/%s", path, dir->d_name);
                     if(module_type_load_file(fpath, types)<0)

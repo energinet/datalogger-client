@@ -31,14 +31,11 @@
 #include <assert.h>
 
 
-/**
- * @defgroup modules Available modules
- * @{
- */
 
 /**
- * @defgroup modules_keyinput Input Module
+ * @addtogroup module_xml
  * @{
+ * @section keymodxml Key input module
  * Module for handeling key inputs eg /dev/input/event0.
  * <b>Typename: "keyinput" </b>\n
  * <b>Attributes:</b>\n
@@ -69,7 +66,28 @@
  *   - \b maxcount: Max number of units before event. 
  *   - \b interval: Wait interfal before transmitting events if pulses. 
  * </ul>
+ * The key numbers for the three DIN mounted computers are shon in the table below.
+
+
+ * <TABLE>
+ * <TR><TH>Number</TH><TH>#define</TH><TH>SG SDVP</TH><TH>SG Generic</TH><TH>LIAB DIN</TH></TR>
+ * <TR><TD> 0x101</TD><TD> BTN_1 </TD><TD>     - </TD><TD>     -    </TD><TD>Button 1</TD></TR>
+ * <TR><TD> 0x102</TD><TD> BTN_2 </TD><TD>     - </TD><TD>     -    </TD><TD>Button 2</TD></TR>
+ * <TR><TD> 0x103</TD><TD> BTN_3 </TD><TD>     - </TD><TD>     -    </TD><TD> Opto 1 </TD></TR>
+ * <TR><TD> 0x104</TD><TD> BTN_4 </TD><TD> Opto 0</TD><TD>  Opto 0  </TD><TD> Opto 2 </TD></TR>
+ * <TR><TD> 0x105</TD><TD> BTN_5 </TD><TD> Opto 1</TD><TD>  Opto 1  </TD><TD> Opto 3 </TD></TR>
+ * <TR><TD> 0x106</TD><TD> BTN_6 </TD><TD> Button</TD><TD>  Opto 2  </TD><TD> Opto 4 </TD></TR>
+ * <TR><TD> 0x107</TD><TD> BTN_7 </TD><TD>    -  </TD><TD>  Opto 3  </TD><TD>    -   </TD></TR>
+ * <TR><TD> 0x108</TD><TD> BTN_8 </TD><TD>    -  </TD><TD>  Button  </TD><TD>    -   </TD></TR>
+ * </TABLE> 
+ * @} 
  */
+
+/**
+ * @defgroup modules Available modules
+ * @{
+ */
+
 
 
 #define SEC_UNIT 1000000
@@ -157,6 +175,15 @@ const char *trigtyps[] = { "all", "high", "low" , NULL };
  * @ref activtype
  */
 const char *activtyps[] = { "high", "low", "highosc", "lowosc", NULL };
+
+/***********************/
+/* Prototypes          */
+/***********************/
+
+
+int key_obj_count_event(struct keymod_object *module, struct key_obj *keyobj,struct timeval *time, int pulse);
+int key_obj_trigger_event(struct keymod_object *module, struct key_obj *keyobj,
+						  struct timeval *time, int hit_);
 
 /***********************/
 /* Utils               */
@@ -281,12 +308,14 @@ int key_obj_update(struct keymod_object *module, struct key_obj *keyobj
 {
     switch(keyobj->type){
       case KEY_COUNT:
-	return key_obj_count_event(module, keyobj,time, 0);
+		return key_obj_count_event(module, keyobj,time, 0);
       case KEY_TRIGGER:
-	return key_obj_trigger_event(module, keyobj, time, 0);
+		return key_obj_trigger_event(module, keyobj, time, 0);
       default:
-	break;
+		break;
     }
+	
+	return 0;
 }
 
 
@@ -361,16 +390,8 @@ void module_send_event(struct keymod_object *module, struct event_type *event_ty
 {
     struct uni_data *data = uni_data_create_flow(value, diff);
     
-    PRINT_MVB(&module->base, "sending %s val %f, diff %d", event_type->name, value, diff);
+    PRINT_MVB(&module->base, "sending %s val %f, diff %lu", event_type->name, value, diff);
    
-    /* memset(&data, 0, sizeof(data)); */
-
-    /* data.type = DATA_FLOW; */
-    /* data.value = (float)value; */
-    /* data.mtime = diff; */
-    /* data.data = &value; */
-
-
     module_base_send_event(module_event_create(event_type, data, time));
 
 }
@@ -387,11 +408,10 @@ void key_obj_count_reset(struct key_obj *keyobj, struct timeval *time)
 int key_obj_count_event(struct keymod_object *module, struct key_obj *keyobj,struct timeval *time, int pulse)
 {
     unsigned long diff_reset;    
-    unsigned long diff_pulse;    
-    int retval = 0;
-
+//    unsigned long diff_pulse;    
+    
     if(!time)
-	return 0;
+		return 0;
 
     if(keyobj->last_reset.tv_sec == 0){
         key_obj_count_reset(keyobj, time);
@@ -399,7 +419,7 @@ int key_obj_count_event(struct keymod_object *module, struct key_obj *keyobj,str
     }
 
     diff_reset = timeval_diff(time, &keyobj->last_reset);
-    diff_pulse = timeval_diff(&keyobj->last_pulse, &keyobj->last_reset);
+//    diff_pulse = timeval_diff(&keyobj->last_pulse, &keyobj->last_reset);
     
     if(pulse){
         if(module->base.verbose)
@@ -411,12 +431,12 @@ int key_obj_count_event(struct keymod_object *module, struct key_obj *keyobj,str
 
     if(keyobj->count.count && (/*diff_pulse*/ diff_reset > module->interval)){
         unsigned long diff = timeval_diff(&keyobj->last_pulse,&keyobj->last_reset);
-        module_send_event(module, keyobj->event_type, &keyobj->last_pulse, diff, 
+        module_send_event(module, keyobj->event_type, &keyobj->last_pulse, diff/1000, 
 			    keyobj->count.count*keyobj->count.upp);
         key_obj_count_reset(keyobj, &keyobj->last_pulse);
     } else if(diff_reset > module->timeout){
         unsigned long diff = timeval_diff(time, &keyobj->last_reset);
-        module_send_event(module, keyobj->event_type, time, diff, 
+        module_send_event(module, keyobj->event_type, time, diff/1000, 
 			    keyobj->count.count*keyobj->count.upp);
         key_obj_count_reset(keyobj, time);
 	keyobj->count.period = 0;
@@ -729,21 +749,16 @@ void input_event_print(struct input_event *event){
 int key_obj_pulse(struct keymod_object *module, struct key_obj *keyobj
 			 ,struct timeval *time, struct input_event *event)
 {
-    int hit = 0;
-    int value = -1;
-//    PRINT_MVB(module->base, " pulse \n");
+
     if(event ){
-	if(keyobj->key_code == event->code){
-	    key_obj_value_update(module, keyobj, time,  event->value);
+		if(keyobj->key_code == event->code){
+			key_obj_value_update(module, keyobj, time,  event->value);
 //	    PRINT_MVB(&module->base, "value %d, hit %d, trig %d", value, hit, keyobj->trig); 
-	}
+		}
 
     } else {
-	key_obj_update(module, keyobj,time);
+		key_obj_update(module, keyobj,time);
     }
-
-
-
 
     return 0;
 }

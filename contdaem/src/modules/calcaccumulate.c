@@ -31,14 +31,12 @@
 #include <assert.h>
 
 
-/**
- * @ingroup modules 
- * @{
- */
 
 /**
- * @defgroup modules_calcacc accumulate module
+ * @addtogroup module_xml
  * @{
+ * @section calcacc_xml Accumulate module
+
  * Module for averaging or summing events for a given interval.
  * <b>Typename: "accumulate" </b>\n
  * <b>Attributes:</b>\n
@@ -54,9 +52,19 @@
  * - \b output: The output data type. Possible are \p level 
  *      or as the \p input event datatype. Default is \p input.
  * </ul>
+ * @}
  */
 
 
+/**
+ * @ingroup modules 
+ * @{
+ */
+
+/**
+ * @defgroup modules_calcacc accumulate module
+ * @{
+*/
 #define DEFAULT_ACCINTERVAL 300
 
 enum acc_output{ 
@@ -75,8 +83,10 @@ const char *outtyps[] = { "input", "level", "flow" , "sum","min","max", NULL};
 struct acc_obj{
     enum data_types dtype;
     enum acc_output output;
+	struct module_calc *calc;
     int count;
     float value;
+	unsigned long msec;
     int interval;
     struct timeval t_send;
     struct event_type *event_type;
@@ -142,8 +152,7 @@ int handler_def(EVENT_HANDLER_PAR)
 
 int handler_rcv(EVENT_HANDLER_PAR)
 {
-    struct module_object* this = module_get_struct(handler->base);
-    struct acc_obj *accobj = (struct acc_obj*)handler->objdata;
+	struct acc_obj *accobj = (struct acc_obj*)handler->objdata;
     struct uni_data *data = event->data;
     float fvalue =  uni_data_get_fvalue(data);
 
@@ -165,12 +174,13 @@ int handler_rcv(EVENT_HANDLER_PAR)
       case ACCOUT_FLOW:
       case ACCOUT_SUM:
       default:
-	accobj->value +=  uni_data_get_value(data);
-	break;
+		accobj->value +=  uni_data_get_value(data);
+		accobj->msec +=  data->mtime;
+		break;
     }
 	
     accobj->count++;
-    // printf("Acc %s value %f, acc %f avg %f %d\n", accobj->event_type->name, uni_data_get_fvalue(data),  accobj->value, accobj->value/accobj->count, accobj->dtype);
+	PRINT_MVB(handler->base, "Acc %s value %f, acc %f avg %f %d\n", accobj->event_type->name, uni_data_get_fvalue(data),  accobj->value, accobj->value/accobj->count, accobj->dtype);
 
     return 0;
 }
@@ -189,7 +199,9 @@ int start_avg(XML_START_PAR)
     struct event_handler* handler = NULL;
 
     if(!this)
-	return 0;
+		return 0;
+
+	
 
     handler = event_handler_get(this->event_handlers, "def");
 
@@ -211,7 +223,8 @@ int module_init(struct module_base *module, const char **attr)
     struct module_object* this = module_get_struct(module);
 
     this->interval = get_attr_int(attr, "interval", DEFAULT_ACCINTERVAL);
-
+	
+	return 0;
 }
 
 
@@ -221,19 +234,21 @@ int acc_obj_send(struct module_object *module, struct acc_obj *accobj, struct ti
     if(accobj->count || accobj->dtype == DATA_FLOW){
 	struct uni_data *data;
 	
+	float value = module_calc_calc(accobj->calc, accobj->value);
+
 	if(accobj->dtype == DATA_FLOW){
 	    if(accobj->output == ACCOUT_SUM||accobj->output == ACCOUT_MIN || accobj->output == ACCOUT_MAX )
-		data = uni_data_create_float(accobj->value);
+			data = uni_data_create_float(value);
 	    else if(accobj->output == ACCOUT_LEVEL){
-		data = uni_data_create_float(accobj->value/accobj->interval);
+			data = uni_data_create_float(value/accobj->interval);
 	    } else {
-		data = uni_data_create_flow(accobj->value,  1000*accobj->interval);
+			data = uni_data_create_flow(value,  1000*accobj->interval);
 	    }
 	} else {
 	    if(accobj->output == ACCOUT_SUM||accobj->output == ACCOUT_MIN || accobj->output == ACCOUT_MAX )
-		data = uni_data_create_float(accobj->value);
-	    else
-		data = uni_data_create_float(accobj->value/accobj->count);
+		data = uni_data_create_float(value);
+	    else 
+			data = uni_data_create_float(value/accobj->count);
 	}
 
 	PRINT_MVB(&module->base, "Acc event %s avg %f data %d", accobj->event_type->name, uni_data_get_value(data), data->type);
@@ -246,6 +261,9 @@ int acc_obj_send(struct module_object *module, struct acc_obj *accobj, struct ti
     }
     accobj->count = 0;
     accobj->value = 0;
+	accobj->msec  = 0;
+
+	return 0;
 }
 
 
@@ -253,8 +271,8 @@ void* module_loop(void *parm)
 {
     struct module_object *this = module_get_struct(parm);
     struct module_base *base = ( struct module_base *)parm;
-    int retval;
-    time_t prev_time;
+	//time_t prev_time;
+
     base->run = 1;
     
     while(base->run){ 
@@ -268,7 +286,7 @@ void* module_loop(void *parm)
             }
             accobj = accobj->next;
         }
-        prev_time = tv.tv_sec;
+        //prev_time = tv.tv_sec;
 	modutil_sleep_nextsec(&tv);
 	PRINT_MVB(base, "looped :)");
     } 
@@ -286,7 +304,7 @@ struct event_handler *module_subscribe(struct module_base *module, struct module
     struct module_object *this = module_get_struct(module);
     struct acc_obj *new = acc_obj_create(attr);
     struct event_handler *event_handler = NULL;
-    const char *unit   = get_attr_str_ptr(attr, "unit");
+    //const char *unit   = get_attr_str_ptr(attr, "unit");
 
     char ename[64];
     if(strcmp(event_type->name, "fault")==0)
@@ -297,6 +315,8 @@ struct event_handler *module_subscribe(struct module_base *module, struct module
     new->interval = get_attr_int(attr, "interval", this->interval);
     PRINT_MVB(module, "2");
     new->event_type = event_type_create_copypart(&this->base, NULL, attr , event_type);
+	PRINT_MVB(module, "2.5");
+	new->calc = module_calc_create(get_attr_str_ptr(attr, "calc"),module->verbose);  
     PRINT_MVB(module, "3");
     event_handler = event_handler_create(event_type->name,  handler_rcv ,&this->base, (void*)new);
     PRINT_MVB(module, "4");

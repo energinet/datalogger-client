@@ -111,7 +111,6 @@ int module_start(struct module_base *module)
 
 void* module_loop(void *parm)
 {
-    struct module_template *this = module_get_struct(parm);
     struct module_base *base = ( struct module_base *)parm;
 
     base->run = 1;
@@ -127,21 +126,18 @@ void* module_loop(void *parm)
 
 }
 
-struct module_type module_type = {                  \
-    .name       = "template",                       \
-    .mtype      = MTYPE_DATALOG,                    \
-    .subtype    = SUBTYPE_NONE,                     \
-    .init       = module_init,                      \
-    .start      = module_start,                     \
-    .deinit     = module_deinit,                    \
-    .loop       = module_loop,                      \
-    .xml_tags   = module_tags,                      \
-    .handlers   = handlers ,                        \
-    .type_struct_size = sizeof(struct module_base), \
+struct module_type module_type = {                  
+    .name       = "template",                       
+    .mtype      = MTYPE_DATALOG,                    
+    .subtype    = SUBTYPE_NONE,                     
+    .init       = module_init,                      
+    .start      = module_start,                     
+    .deinit     = module_deinit,                    
+    .loop       = module_loop,                      
+    .xml_tags   = module_tags,                      
+    .handlers   = handlers ,                        
+    .type_struct_size = sizeof(struct module_base), 
 };
-//    .events     = events,                           \
-
-
 
 
 struct module_type *module_get_type()

@@ -26,6 +26,36 @@
 #include <assert.h>
 
 
+
+/**
+ * @addtogroup module_xml
+ * @{
+ * @section relaymodxml Relay module
+ * Module for handeling key inputs eg /dev/input/event0.
+ * <b>Typename: "relay" </b>\n
+ * <b>Attributes:</b>\n
+ * <b> Tags: </b>
+ * <ul>
+ * <li><b>output:</b> The output device path \n  
+ *   - \b device: a path to the output device.
+ *   Relays are on a LIAB system located in @p /sys/class/leds/
+ *   @verbatim  <output device="/sys/class/leds/relay_%num%/brightness"/>  @endverbatim
+ * <li><b>listen:</b>  Make relay listen to event\n
+ *   A relay can be set to switch on incomming events. This is done by the listen tag
+ *   - \b num: Relay number. Replaces the @p %num% string in the output path 
+ *   - \b event: The event to listen to.
+ * </ul>
+ @verbatim
+ <module type="relay" name="relays" >
+   <output device="/sys/class/leds/relay_%num%/brightness"/>
+   <listen num="1" event="thr.temp1" name="relay1" />
+   <listen num="2" event="cmdvars.relay02" name="relay2" />
+ </module>
+@endverbatim
+ @}
+*/
+
+
 /**
  * @ingroup modules 
  * @{
@@ -53,7 +83,7 @@ struct relay {
  */
 struct relays_object{
     struct module_base base;
-    char *basepath;
+    const char *basepath;
     int num_next;
     struct relay *relays;
 };
@@ -177,7 +207,11 @@ int relay_output_get(struct relay *this)
         return -errno;
     }
 
-    fscanf(file,"%d", &value);  
+    if(fscanf(file,"%d", &value)!= 1){
+        PRINT_ERR("error reading relay file");
+        return  -EFAULT;
+    }
+		
 
     fclose(file);
     
@@ -202,8 +236,7 @@ int relay_set(struct relay *this, struct uni_data *data)
 
 int handler_rcv(EVENT_HANDLER_PAR)
 {
-    struct relays_object* this = module_get_struct(handler->base);
-    struct relay *relay = (struct relay*)handler->objdata;
+	struct relay *relay = (struct relay*)handler->objdata;
     
     return relay_set(relay, event->data);
 
@@ -215,8 +248,7 @@ int handler_rcv(EVENT_HANDLER_PAR)
 struct module_event *modbus_eread(struct event_type *event)
 {
      struct relay *relay = (struct relay *)event->objdata;
-     struct relays_object* this = module_get_struct(event->base);
-     
+     	 
      int val = relay_output_get(relay);
 
      return module_event_create(event, uni_data_create_int(val), NULL);
@@ -239,7 +271,6 @@ int start_device(XML_START_PAR)
 {
     struct relays_object* this = module_get_struct(ele->parent->data);
     const char *text = get_attr_str_ptr(attr, "device"); 
-    const char *listen = get_attr_str_ptr(attr, "listen"); 
 
     if(!text){
         PRINT_ERR("no text");
@@ -305,11 +336,11 @@ int start_relay(XML_START_PAR)
 }
 
 
-struct xml_tag module_tags[] = {                         \
-    { "relay" , "module" , start_relay, NULL, NULL},	 \
-    { "listen" , "module" , start_relay, NULL, NULL},	 \
-    { "output" , "module" , start_device, NULL, NULL}, \ 
-    { "" , "" , NULL, NULL, NULL }                       \
+struct xml_tag module_tags[] = {                         
+    { "relay" , "module" , start_relay, NULL, NULL},	 
+    { "listen" , "module" , start_relay, NULL, NULL},	 
+    { "output" , "module" , start_device, NULL, NULL}, 
+    { "" , "" , NULL, NULL, NULL }                     
 };
     
 

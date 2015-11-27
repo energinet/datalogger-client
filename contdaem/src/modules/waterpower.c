@@ -66,6 +66,7 @@ int handler_flow(EVENT_HANDLER_PAR)
 
     this->q = uni_data_get_fvalue(data);
 
+	return 0;
 }
 
 int handler_tr(EVENT_HANDLER_PAR)
@@ -82,17 +83,17 @@ int handler_tr(EVENT_HANDLER_PAR)
 	module_send_event(this, this->event_type, &event->time, 1, Q);
     }
     
-
+	return 0;
 }
 
 int handler_tf(EVENT_HANDLER_PAR)
 {
     struct module_object* this = module_get_struct(handler->base);
     struct uni_data *data = event->data;
-
        
     this->Tf = uni_data_get_fvalue(data);
-
+	
+	return 0;
 }
 
 struct module_event *power_eread(struct event_type *event)

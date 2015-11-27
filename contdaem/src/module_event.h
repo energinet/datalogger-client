@@ -125,7 +125,7 @@ struct event_type{
     /**
      * Flow to level unit 
      * @todo Describe and reference */
-    struct ftolunit *flunit;
+    struct convunit *flunit;
     /**
      * A list of subscribers for this event type */
     struct callback_list *subscribers;
@@ -209,6 +209,16 @@ struct callback_list{
  * @return read flags and/or def_flags
  */
 unsigned long event_type_get_flags(const char *flagstr, unsigned long def_flags);
+
+
+/**
+ * Get event flags as string 
+ * @ingroup module_event_flags
+ * @param flags flags to write
+ * @param flagstr output buffer
+ * @return output buffer (flagstr)
+ */
+const char *event_type_get_flag_str(unsigned long flags, char *flagstr);
 
 /**
  * @ingroup module_event_type

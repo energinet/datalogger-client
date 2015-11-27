@@ -97,27 +97,27 @@ struct levelamod_object* module_get_struct(struct module_base *module) {
 	return (struct levelamod_object*) module;
 }
 
-// ToDo finde the bug in xmlpar compile
-float get_attr_float(const char **attr, const char *id, float rep_value) {
-	int attr_no;
-	float ret;
-	char *format;
+/* // ToDo finde the bug in xmlpar compile */
+/* float get_attr_float(const char **attr, const char *id, float rep_value) { */
+/* 	int attr_no; */
+/* 	float ret; */
+/* 	char *format ; */
 
-	attr_no = get_attr_no(attr, id);
+/* 	attr_no = get_attr_no(attr, id); */
 
-	if (attr_no < 0) {
-		return rep_value;
-	}
+/* 	if (attr_no < 0) { */
+/* 		return rep_value; */
+/* 	} */
 
-	if (sscanf(attr[attr_no], "%f", &ret) != 1) {
-		printf("Attribute %s could not be red: %s (format %s)\n", id,
-				attr[attr_no], format);
-		return rep_value;
-	}
-	printf("get_attr_float %f\n", ret);
+/* 	if (sscanf(attr[attr_no], "%f", &ret) != 1) { */
+/* 		printf("Attribute %s could not be red: %s (format %s)\n", id, */
+/* 			   attr[attr_no], format); */
+/* 		return rep_value; */
+/* 	} */
+/* 	printf("get_attr_float %f\n", ret); */
 
-	return ret;
-}
+/* 	return ret; */
+/* } */
 
 /**
  * Create levelalarm
@@ -247,10 +247,10 @@ int handler_rcv(EVENT_HANDLER_PAR) {
 /**
  * Read event handler
  */
-struct module_event *modbus_eread(struct event_type *event) {
+struct module_event *modbus_eread(struct event_type *event) 
+{
 	struct levelald *levelah = (struct levelald *) event->objdata;
-	struct levelamod_object* this = module_get_struct(event->base);
-
+	
 	return module_event_create(event, uni_data_create_int(levelah->state), NULL);
 }
 
@@ -280,6 +280,7 @@ int module_init(struct module_base *base, const char **attr) {
 
 	this->omode = modutil_get_listitem(omode, LA_ONCHAN, throtyps);
 
+	return 0;
 }
 
 struct event_handler *module_subscribe(struct module_base *module,

@@ -1,0 +1,6 @@
+
+
+<modules>
+  <module type="syslog" name="syslog" path="/var/log/messages" >
+  </module>
+</modules>

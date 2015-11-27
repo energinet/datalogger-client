@@ -2,13 +2,18 @@ VERSIONINC = version.h
 
 lib_LTLIBRARIES  = libmodule.la 
 
-bin_PROGRAMS = contdaem
+bin_PROGRAMS = contdaem contdaemtest
 BUILT_SOURCES = version.h
 
 # Main application
 contdaem_SOURCES = contdaem.c module_tick_master.c
 contdaem_LDADD = -lmodule
 contdaem_DEPENDENCIES = libmodule.la
+
+contdaemtest_SOURCES = contdaemtest.c 
+contdaemtest_LDADD = -lmodule
+contdaemtest_DEPENDENCIES = libmodule.la
+
 
 # General libs
 libmodule_la_SOURCES = uni_data.c module_event.c module_util.c type_loader.c module_type.c module_base.c module_tick.c module_value.c

@@ -21,12 +21,15 @@
 #include <pthread.h>
 #include <sys/time.h>
 
+#include "module_base.h"
+
 #define TICK_FLAG_SKIP (1 << 8)
 #define TICK_FLAG_SECALGN 0xf
 #define TICK_FLAG_SECALGN1 1
 #define TICK_FLAG_SECALGN2 2
 
 struct module_tick;
+
 
 struct module_tick_master{
     pthread_t thread;  
@@ -55,6 +58,7 @@ struct module_tick{
     unsigned long outerr;
     int inwait;
     unsigned long flags;
+	struct module_base *base;
     struct module_tick_master *master;
     struct module_tick *next;
 };
@@ -62,7 +66,7 @@ struct module_tick{
 
 
 
-struct module_tick *module_tick_create(struct module_tick_master *master, float interval, unsigned long flags);
+struct module_tick *module_tick_create(struct module_tick_master *master, struct module_base *base, float interval, unsigned long flags);
 
 struct module_tick *module_tick_add(struct module_tick *list, struct module_tick *new);
 struct module_tick *module_tick_rem(struct module_tick *list, struct module_tick *rem);

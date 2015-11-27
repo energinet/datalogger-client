@@ -23,16 +23,17 @@
 //#include "contdaem.h"
 //#include "module_util.h"
 
-struct ftolunit *ftlunit;
+struct convunit *ftlunit;
 /**
  * @defgroup uni_data_grp Universal data object
  * @{
  * The possible datatypes are described in @ref data_types
  */
 
+#define DATA_TYPEDELIM '_'
+
 /**
 * Data types
-* @enum 
 */
 enum data_types{
     /**
@@ -145,12 +146,20 @@ struct uni_data *uni_data_create_state(unsigned long state, const char *text);
 
 
 /**
- * Creates a state datatype 
+ * Creates a data object from a string
  * @param type A the output datatype
  * @param str The input string
  * @return a pointer to the data object
  */
 struct uni_data *uni_data_create_from_str(enum data_types type, const char *str);
+
+
+/**
+ * Creates a data object from a string where the type is included in the string
+ * @param str The input string
+ * @return a pointer to the data object
+ */
+struct uni_data *uni_data_create_from_typstr(const char *str);
 
 /**
  * Delete a data object 
@@ -179,7 +188,7 @@ int uni_data_get_txt_value(struct uni_data *data, char* buffer, int max_size);
  * @return The length of the printed string
  * @todo Make consistend with uni_data_get_fvalue
  */
-int uni_data_get_txt_fvalue(struct uni_data *data, char* buffer, int max_size, struct ftolunit *ftlunit);
+int uni_data_get_txt_fvalue(struct uni_data *data, char* buffer, int max_size, struct convunit *ftlunit);
 
 /**
  * Return the float value of a data object
@@ -205,6 +214,23 @@ float uni_data_get_value(struct uni_data *data);
  * @note Only the text and state may contain a string;
  */
 const char *uni_data_get_strptr(struct uni_data *data);
+
+
+/**
+ * Set the data of the destination equal to the source data
+ * @param dest The destination data
+ * @param src  The source data
+*/
+void uni_data_set_data(struct uni_data *dest, struct uni_data *src);
+
+/**
+ * Set float value 
+ * @param data The data object 
+ * @param value The value to set
+ * @note if the data object is not a float of flow this function will
+ *       not update the value
+ */
+void uni_data_set_fvalue(struct uni_data *data, float value);
 
 /**
  * Get enumerated datatype 

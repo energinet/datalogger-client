@@ -31,6 +31,25 @@
 
 
 
+/**
+ * @addtogroup module_xml
+ * @{
+ * @section sec_readfile_module_xml node read/write module 
+ *  
+ * @verbatim 
+<module type="readfile" name="pt1000"  verbose="0" flags="nolog">
+  <file path="/dev/adc00" name="temp1" text="Temperatur 1" unit="°C"
+	interval="1" calc="eeprom:adc00_calc#poly1:a0.105b-273" multiread="10"
+	max="100" min="-45" />
+  <file path="/dev/adc01" name="temp2" text="Temperatur 2" unit="°C"
+	interval="1" calc="eeprom:adc01_calc#poly1:a0.105b-273" multiread="10"
+	max="100" min="-45" />
+</module>
+  @endverbatim
+  * @}
+*/
+
+
 
 /**
  * @ingroup modules 
@@ -221,19 +240,18 @@ void rdfile_delete(struct rdfile *rdfile)
 
 float rdfile_readfile(struct rdfile *rdfile);
 
- struct module_event *rdfile_eread(struct event_type *event)
- {
+struct module_event *rdfile_eread(struct event_type *event)
+{
      struct rdfile *rdfile = (struct rdfile *)event->objdata;
 
      float value = rdfile_readfile(rdfile);
      return module_event_create(event, uni_data_create_float(value), NULL);
- }
+}
 
 int rdfile_writefile(struct rdfile *rdfile, struct uni_data *data);
 
 /**
- * Receive handler for @ref led_obj 
- * @memberof led_obj
+ * Receive handler 
  * @note See @ref EVENT_HANDLER_PAR for paramaters
  */
 
@@ -424,31 +442,31 @@ float rdfile_readfile(struct rdfile *rdfile)
         PRINT_ERR("error opening file %s: %s", rdfile->filepath, strerror(errno));
         return -1;
     };
-    
-    memcpy(&rdfile->rdtime, time, sizeof(struct timeval));
 
     values = malloc(sizeof(int)*rdfile->mread_cnt);
 
-
-
-
     for(i = 0; i < rdfile->mread_cnt; i++){
 		
+		memset(buf, 0, sizeof(buf));
+
         retval = read(fd, buf, sizeof(buf));   
 
-        if(retval < 0){
+        if(retval <= 0){
             PRINT_ERR("read error");
 			calc_value = -1;
 			goto out;
 		}
-        
+
         switch(rdfile->imode){
           default:
           case IMODE_ASCII:
             value = atoi(buf);
             break;
           case IMODE_INT:
-            value = (int)buf;
+            value =  buf[0]&0xff;
+            value += (buf[1]&0xff)<<8;
+			value += (buf[2]&0xff)<<16;
+			value += (buf[3]&0xff)<<24;
             break;
           /* case IMODE_SHORT: */
           /*   value = (short)buf; */
@@ -460,11 +478,10 @@ float rdfile_readfile(struct rdfile *rdfile)
 
         values[i] = value;
     }
-    
+	
     fvalue = calc_median(values, rdfile->mread_cnt);
     value = (int) fvalue;
    
-    
     calc_value = module_calc_calc(rdfile->calc, fvalue);
     //PRINT_DBG(1, "read: %f, calc_value: %f\n ", fvalue, calc_value);
 
@@ -482,6 +499,7 @@ int rdfile_read(struct module_object *module, struct rdfile *rdfile, struct time
 
     calc_value = rdfile_readfile(rdfile);
 //    PRINT_DBG(1, "read: %f, calc_value: %f\n ", fvalue, calc_value);
+	memcpy(&rdfile->rdtime, time, sizeof(struct timeval));
     rdfile->last_value = calc_value;
     if(rdfile_upd_status(rdfile)==0)
 	rdfile_send_m_event(module, rdfile->event_type, time, 1, calc_value);
@@ -505,8 +523,7 @@ int start_rdfile(XML_START_PAR)
 {
     struct modules *modules = (struct modules*)data;
     struct module_object* this = module_get_struct(ele->parent->data);
-    const char *calc = NULL;
-    struct rdfile *rdfile = rdfile_create(get_attr_str_ptr(attr, "path"),
+        struct rdfile *rdfile = rdfile_create(get_attr_str_ptr(attr, "path"),
                   get_attr_int(attr, "interval", 60),
                   get_attr_str_ptr(attr, "event_mode"),
                   get_attr_str_ptr(attr, "input"));
@@ -578,10 +595,7 @@ int module_init(struct module_base *base, const char **attr)
 
     this->write_enabled = get_attr_int(attr, "write", 0);
 
-    this->tick = module_tick_create(base->tick_master,  get_attr_float(attr, "interval", 0), TICK_FLAG_SECALGN1);
-
-
-		
+    this->tick = module_tick_create(base->tick_master,  base, get_attr_float(attr, "interval", 0), TICK_FLAG_SECALGN1);
 
     return 0;
 
@@ -634,8 +648,8 @@ void* module_loop(void *parm)
 {
     struct module_object *this = module_get_struct(parm);
     struct module_base *base = ( struct module_base *)parm;
-    int retval;
     time_t prev_time;
+
     base->run = 1;
     
     while(base->run){ 
@@ -646,7 +660,7 @@ void* module_loop(void *parm)
 		
 		if(pthread_mutex_lock(&rdfile_mutex)){
 			PRINT_ERR("error locking mutex");
-			return -1; 
+			return NULL; 
 		}
 	   		
 		while(rdfile){
@@ -664,7 +678,7 @@ void* module_loop(void *parm)
 
     } 
     
-    PRINT_MVB(base, "loop returned");
+    PRINT_MVB(base, "loop returned %ld",  prev_time );
     
     return NULL;
 

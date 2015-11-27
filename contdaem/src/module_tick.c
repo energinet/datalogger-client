@@ -25,7 +25,7 @@
 #include <time.h>
 #include <assert.h>
 
-struct module_tick *module_tick_create(struct module_tick_master *master, float interval, unsigned long flags)
+struct module_tick *module_tick_create(struct module_tick_master *master, struct module_base *base, float interval, unsigned long flags)
 {
     struct module_tick *new = malloc(sizeof(*new));
     assert(new);
@@ -51,6 +51,9 @@ struct module_tick *module_tick_create(struct module_tick_master *master, float 
 
     master->outcnt++;
     new->inwait = 0;
+
+	new->base = base;
+
     pthread_mutex_unlock(&master->mutex);
     
 //    fprintf(stderr, "tick created: div %d, interval %f\n", new->div, interval);
@@ -130,6 +133,8 @@ void module_tick_set_interval(struct module_tick *tick, float interval)
 	tick->div = (interval*1000)/(master->ms_interval);
     else 
 	tick->div = 1;
+
+    fprintf(stderr, "Set tick interval set to %f (div %d)\n", interval, tick->div);
 }
 
 
@@ -200,6 +205,9 @@ int module_tick_wait(struct module_tick *tick, struct timeval *time)
 void module_tick_master_set_interval(struct module_tick_master *master, int ms_interval)
 {
     struct module_tick *ptr = master->ticks;
+
+    fprintf(stderr, "Set tick master interval to %d ms\n", ms_interval);
+
     master->ms_interval = ms_interval;
     while(ptr){
 	module_tick_set_interval(ptr, ptr->interval);

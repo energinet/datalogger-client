@@ -31,7 +31,17 @@
 #include <linux/input.h>
 #include <assert.h>
 
-
+/**
+ * @addtogroup module_xml
+ * @{
+ * @section calcmodxml Calculation module
+ * @verbatim 
+ <module type="calc" name="calc" verbose="1" flags="nolog">
+    <sub a="modbus.rtind" b="modbus.rtoutd" name="tdiff" unit="°C" text="Temperaturdifference" sync="0" />
+  </module>
+  @endverbatim
+  * @}
+*/
 enum mcalc_type{
     MCALC_ADD,
     MCALC_SUB,
@@ -85,8 +95,8 @@ struct mcalc *mcalc_create(struct module_base *base, const char **attr,
 
 	new->calc = module_calc_create(get_attr_str_ptr(attr, "calc"),base->verbose);  
 
-    if(!new->a, !new->b, !new->result)
-	return NULL;
+    if(!new->a || !new->b || !new->result)
+		return NULL;
 
     return new;
 
@@ -111,9 +121,9 @@ struct mcalc *mcalc_add(struct mcalc *list, struct mcalc *new)
 void mcalc_delete(struct mcalc *calc_obj)
 {
     if(!calc_obj)
-	return ;
+		return ;
     
-    calc_delete(calc_obj->next);
+    mcalc_delete(calc_obj->next);
     free(calc_obj);
 }
 
@@ -137,9 +147,9 @@ void mcalc_rcv_call(struct evalue *evalue)
 	      (insync)?"in sync":"no sync",
 	      a, b);
     
-    PRINT_MVB(base, "A: %d.%6.6d, B: %d.%6.6d",  
-	      calc_obj->a->time.tv_sec, calc_obj->a->time.tv_usec,  
-	      calc_obj->b->time.tv_sec, calc_obj->b->time.tv_usec); 
+    PRINT_MVB(base, "A: %ld.%6.6ld, B: %ld.%6.6ld",  
+			  calc_obj->a->time.tv_sec, calc_obj->a->time.tv_usec,  
+			  calc_obj->b->time.tv_sec, calc_obj->b->time.tv_usec); 
     
 	if(!calc_obj->dosync)
 		insync = 1;
@@ -169,7 +179,7 @@ void mcalc_rcv_call(struct evalue *evalue)
 	
     if(insync){
 		result = module_calc_calc(calc_obj->calc, result);
-		PRINT_MVB(base, "Result %f (time %d.%6.6d", result, stime.tv_sec, stime.tv_usec);
+		PRINT_MVB(base, "Result %f (time %ld.%6.6ld", result, stime.tv_sec, stime.tv_usec);
 		evalue_setft(calc_obj->result, result, &stime);
     } 
 
@@ -180,8 +190,7 @@ void mcalc_rcv_call(struct evalue *evalue)
 
 int start_add(XML_START_PAR)
 {
-    struct modules *modules = (struct modules*)data;
-    struct module_base* base = ele->parent->data;
+	struct module_base* base = ele->parent->data;
     struct calc_module *this = module_get_struct(base);
     struct mcalc *new = mcalc_create(base,attr, MCALC_ADD);
     this->list = mcalc_add(this->list, new);
@@ -195,8 +204,7 @@ int start_add(XML_START_PAR)
 }
 int start_sub(XML_START_PAR)
 {
-    struct modules *modules = (struct modules*)data;
-    struct module_base* base = ele->parent->data;
+	struct module_base* base = ele->parent->data;
     struct calc_module *this = module_get_struct(base);
     struct mcalc *new = mcalc_create(base,attr, MCALC_SUB);
     this->list = mcalc_add(this->list, new);
@@ -210,8 +218,7 @@ int start_sub(XML_START_PAR)
 }
 int start_mult(XML_START_PAR)
 {
-    struct modules *modules = (struct modules*)data;
-    struct module_base* base = ele->parent->data;
+	struct module_base* base = ele->parent->data;
     struct calc_module *this = module_get_struct(base);
     struct mcalc *new = mcalc_create(base,attr, MCALC_MULT);
     this->list = mcalc_add(this->list, new);
@@ -225,14 +232,13 @@ int start_mult(XML_START_PAR)
 }
 int start_div(XML_START_PAR)
 {
-    struct modules *modules = (struct modules*)data;
-    struct module_base* base = ele->parent->data;
+	struct module_base* base = ele->parent->data;
     struct calc_module *this = module_get_struct(base);
     struct mcalc *new = mcalc_create(base,attr, MCALC_DIV);
     this->list = mcalc_add(this->list, new);
 
     if(!new){
-	return -1;
+		return -1;
     }
 	
     return 0;

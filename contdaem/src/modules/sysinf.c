@@ -33,6 +33,55 @@
 
 
 /**
+ * @addtogroup module_xml
+ * @{
+ * @section sysinfmodxml System intomation module
+ * Module for monitoring system performace.
+ * <b>Typename: "ssyinf" </b>\n
+ * <b> Tags: </b>
+ * <ul>
+ * <li><b>info:</b> The output device path \n  
+ *   Information about the system memory usage.
+ * - <b> type:</b>   The type of reading:\n
+ *    -- @p memfree : the amount of free memory\n
+ *    -- @p vmused : the amount of virtual memory that is allocated\n
+ *    -- @p p_mrss : the amount of memory that is used by an application \n
+ *    -- @p p_mvsz : the amount of virtual memory that is allocated by an application 
+ * - <b> app:</b>   The name of the application. Used in the types: p_mrss and p_mvsz\n
+ * - <b> pidfile:</b>   The path to the pidtile of the application. Used in the types: p_mrss and p_mvsz\n
+ * - <b> interval:</b>  The interval to log in seconds\n
+ * <li><b>filesize:</b> Read the size of a file \n  
+ * - <b> path:</b> The path of the file\n
+ * - <b> interval:</b>  The interval to log in seconds\n
+ * <li><b>partfree:</b> Read the amount of free space on a pattition \n  
+ * - <b> path:</b>  The path of the partition\n
+ * - <b> interval:</b>  The interval to log in seconds\n
+ * </ul>
+ * Example from a setup:
+ @verbatim 
+ <module type="sysinf" name="system" flags="hide">
+    <info type="memfree" interval="3600"/>
+    <info type="vmused" interval="3600"/>
+    <info type="p_mrss" app="contdaem" pidfile="/var/run/contdaem.pid" 
+          interval="3600"/>
+    <info type="p_mvsz" app="contdaem" pidfile="/var/run/contdaem.pid" 
+          interval="3600"/>
+    <info type="p_mrss" app="licon" pidfile="/var/run/licon.pid" 
+          interval="3600"/>
+    <info type="p_mvsz" app="licon" pidfile="/var/run/licon.pid" 
+          interval="3600"/>
+    <filesize name="bigdb" path="/jffs2/bigdb.sql" 
+          interval="3600"/>
+    <partfree name="root" path="/" interval="3600"/>
+    <partfree name="jffs2" path="/jffs2" interval="3600"/>
+  </module>
+@endverbatim
+ @}
+*/
+
+
+
+/**
  * @ingroup modules 
  * @{
  */
@@ -147,8 +196,7 @@ int sys_info_read_file(const char *path, const char *search)
     int retval = -1;
     char *retptr = NULL;
     FILE *file;
-    int pid;
-    int len = strlen(search);
+	int len = strlen(search);
     char buf[1024];
 
     if(!path)
@@ -294,8 +342,7 @@ struct sys_info *sys_info_add(struct sys_info *first, struct sys_info *new)
 }
 
 
-void sys_info_send_m_event(struct module_object *module, struct event_type *event_type, struct timeval *time, unsigned long diff, float value)
-{
+void sys_info_send_m_event(struct module_object *module, struct event_type *event_type, struct timeval *time, unsigned long diff, float value){
     struct uni_data data;
 
     memset(&data, 0, sizeof(data));
@@ -343,8 +390,7 @@ int sys_info_read(struct module_object *module, struct sys_info *sysinfo, struct
 {
     int retval;
     float value;
-    char ret[64];
-    char file[64];
+	char file[64];
 
     sysinfo->state = SYSSTA_OK;
 
@@ -670,8 +716,8 @@ void* module_loop(void *parm)
 {
     struct module_object *this = module_get_struct(parm);
     struct module_base *base = ( struct module_base *)parm;
-    int retval;
-    time_t prev_time;
+//	time_t prev_time;
+
     base->run = 1;
     
     while(base->run){ 
@@ -683,7 +729,7 @@ void* module_loop(void *parm)
             sysinf = sysinf->next;
         }
 	sys_info_state_upd(this);
-        prev_time = tv.tv_sec;
+    //    prev_time = tv.tv_sec;
         sleep(1);
     } 
     

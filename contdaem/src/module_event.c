@@ -43,29 +43,48 @@ unsigned long event_type_get_flags(const char *flagstr, unsigned long def_flag)
     ptr = str;
 
     while(ptr){
-	ptr_nxt = strchr(ptr, ',');
-	if(ptr_nxt){
-	    ptr_nxt[0] = '\0';
-	    ptr_nxt++;
-	}
-	
-	if(strcmp(ptr, "all")==0)
-	    retflag |= FLAG_ALL;
-	else if(strcmp(ptr, "log")==0)
-	    retflag |=  FLAG_LOG;
-	else if (strcmp(ptr, "nolog")==0)
-	    retflag &= ~FLAG_LOG;
-	else if (strcmp(ptr, "show")==0)
-	    retflag |=  FLAG_SHOW;
-	else if (strcmp(ptr, "hide")==0)
-	    retflag &= ~FLAG_SHOW;
-	
-	ptr = ptr_nxt;
+		ptr_nxt = strchr(ptr, ',');
+		if(ptr_nxt){
+			ptr_nxt[0] = '\0';
+			ptr_nxt++;
+		}
+		
+		if(strcmp(ptr, "all")==0)
+			retflag |= FLAG_ALL;
+		else if(strcmp(ptr, "log")==0)
+			retflag |=  FLAG_LOG;
+		else if (strcmp(ptr, "nolog")==0)
+			retflag &= ~FLAG_LOG;
+		else if (strcmp(ptr, "show")==0)
+			retflag |=  FLAG_SHOW;
+		else if (strcmp(ptr, "hide")==0)
+			retflag &= ~FLAG_SHOW;
+		
+		ptr = ptr_nxt;
     }
-
+	
     free(str);
 
     return retflag;
+}
+
+const char *event_type_get_flag_str(unsigned long flags, char *flagstr)
+{
+	int len = 0;
+
+	if(flags & FLAG_LOG)
+		len =+ sprintf(flagstr+len, "log,");
+	else 
+		len =+ sprintf(flagstr+len, "nolog,");
+
+	if(flags & FLAG_SHOW)
+		len =+ sprintf(flagstr+len, "show");
+	else 
+		len =+ sprintf(flagstr+len, "hide");
+
+	fprintf(stderr, "event_type_get_flag_str(%lX, --): %s", flags , flagstr);
+
+	return flagstr;
 }
 
 
@@ -92,7 +111,7 @@ struct event_type *event_type_create(struct module_base *base, void *objdata,
 
     if(unit){
         new->unit = strdup(unit);
-	new->flunit = module_calc_get_flunit(unit, NULL);
+	new->flunit = module_conv_get_level(unit, NULL);
     }
 
     if(hname)
@@ -117,10 +136,6 @@ struct event_type *event_type_create_attr(struct module_base *base, void *obj, c
 			     get_attr_str_ptr(attr, "unit"), 
 			     get_attr_str_ptr(attr, "text"), 
 			     event_type_get_flags(get_attr_str_ptr(attr, "flags"), base->flags)); 
-
-    
-    
-
 
 }
 
@@ -297,13 +312,19 @@ struct module_event *event_type_read(struct event_type *event)
 
 int event_type_write(struct event_type *event, struct uni_data *data)
 {
+	int retval; 
+
     if(!event->write)
 	return -EACCES;
 
     if(!data)
 	return -EINVAL;
+	
+    retval = event->write(event, data);
 
-    return event->write(event, data);
+	uni_data_delete(data);
+
+	return retval;
     
 }
 
@@ -586,6 +607,10 @@ struct module_base* event_search_next_module__(struct module_base* current, cons
 void event_search_init(struct event_search* search, struct module_base* module_list, const char *name, unsigned long mask)
 {
     assert(search);
+
+    if(!module_list){
+	PRINT_ERR("module_list is NULL");
+    }
 
     memset(search, 0, sizeof(*search));
 

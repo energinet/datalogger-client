@@ -51,6 +51,8 @@ int module_init(struct module_base *module, const char **attr)
     struct module_object* this = module_get_struct(module);
 
     this->readlist = NULL;
+	
+	return 0;
 }
 
 
@@ -104,10 +106,8 @@ void module_print_reads(struct module_event* event)
 
 void* module_loop(void *parm)
 {
-    struct module_object *this = module_get_struct(parm);
-    struct module_base *base = ( struct module_base *)parm;
-    int retval;
-    time_t prev_time;
+	struct module_base *base = ( struct module_base *)parm;
+        
     base->run = 1;
     
     while(base->run){ 

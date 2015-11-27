@@ -15,7 +15,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-
+ 
 #include "module_tick.h"
 #include "contdaem.h"
 #include <stdio.h>
@@ -49,6 +49,27 @@ void module_tick_master_upd_out(struct module_tick *list)
     }
 	
 }
+
+void module_tick_master_print_inwait(struct module_tick *list)
+{
+    struct module_tick *ptr = list;
+	int i = 0;
+
+    while(ptr){
+		if(!ptr->inwait){
+			struct module_base *base = ptr->base;
+			if(base)
+				fprintf(stderr, "inwait %d '%s'\n", i, base->name);
+			else 
+				fprintf(stderr, "inwait %d \n", i);
+		}
+		ptr = ptr->next;
+		i++;
+    }
+	
+}
+
+
 
 int module_tick_master_loop(struct module_tick_master *master, int *run)
 {
@@ -90,13 +111,14 @@ int module_tick_master_loop(struct module_tick_master *master, int *run)
 	pthread_mutex_lock(&master->mutex);
 	clock_gettime(CLOCK_REALTIME, &ts_now);
 	master->seq = seq++;
-	master->time.tv_sec = ts_now.tv_sec;
-	master->time.tv_usec = ts_now.tv_nsec/1000;
+	master->time.tv_sec = ts_next.tv_sec;
+	master->time.tv_usec = ts_next.tv_nsec/1000;
 	pthread_cond_broadcast(&master->cond);
 	if(master->outcnt){
 	    module_tick_master_upd_out(master->ticks);
 	    master->notinerr += master->outcnt;
 	    fprintf(stderr, "out count %d\n", master->outcnt); 
+		module_tick_master_print_inwait(master->ticks);
 	}
 	pthread_mutex_unlock(&master->mutex);
 	
@@ -128,7 +150,7 @@ int module_tick_master_loop(struct module_tick_master *master, int *run)
 
 int module_tick_master_init(struct module_tick_master *master, int ms_interval, int sec_align)
 {
-    fprintf(stderr, "init tick master %p\n", master);
+    fprintf(stderr, "init tick master %p interval %d ms\n", master, ms_interval);
 
     assert(master);
     memset(master , 0 , sizeof(*master));

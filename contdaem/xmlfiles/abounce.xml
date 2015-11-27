@@ -1,0 +1,26 @@
+<modules>
+  <module type="keyinput" name="inputs"  verbose="0" key_start="0x104">
+    <input device="/dev/input/event0"/>
+    <setup interval="30" />
+    <trigger text="Test knap" unit="" name="button" key_code="0x106" 
+	     flags="nolog"/>
+  </module>
+  <module type="abounce" name="abounce"  verbose="1" >
+    <chatrem delay="3000" event="inputs.button" name="button6"  />
+    <chatrem delay="2500" event="inputs.button" name="button5"  />
+    <chatrem delay="2000" event="inputs.button" name="button4"  />
+    <chatrem delay="1500" event="inputs.button" name="button3"  />
+    <chatrem delay="1000" event="inputs.button" name="button2"  />
+    <chatrem delay="500" event="inputs.button" name="button1"  />
+  </module>
+  <module type="ledpanel" name="ledpanel" verbose="0">
+    <led name="net"  mode="bgb" def="2" event="inputs.button"/>
+    <led name="app"  mode="bgy_" def="2" event="abounce.button1" />
+    <led name="1pt3"  mode="bgy_" def="2" event="abounce.button2" />
+    <led name="4pt6"  mode="bgy_" def="2" event="abounce.button3" />
+    <led name="flow"  mode="bgy_" def="2" event="abounce.button4"  />
+    <led name="rs485" mode="bgy_"  def="2"  event="abounce.button5"  />
+    <led name="cont"  mode="bgy_"  def="2" event="abounce.button6"  />
+  </module>  
+
+</modules>

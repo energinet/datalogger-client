@@ -34,6 +34,44 @@
 #include <sys/ipc.h>
 #include <pthread.h> 
 
+/**
+ * @addtogroup module_xml
+ * @{
+ * @section thresholdmodxml Threshold module
+ * Module for haneling thresholds. Supports hysteresis. \n
+ * <b>Typename: "threshold" </b>\n
+ * <b> Tags: </b>
+ * <ul>
+ * <li><b>threshold:</b> Determin if a value is below or above a threshold \n  
+ *  A simple threshold only needs the  @b thr attrubute. If the input value specified by the @b event 
+ *  attribute is above the threshold, then the value in  @b vmax will be output, and below @b vmin will be output. 
+ *  If a hysteresis is needed it either be specified by adding @b hysteresis attribites or replasing @b thr with 
+ *  the @b max and @b min attributes. 
+ * - <b> thr:</b>  The threshold\n
+ * - <b> hyst:</b>  The hysteresis. Ex. thr=2 hyst=0.5 then max is 2.5 and min is 1.5 \n
+ * - <b> max: </b> The value where outout will be changed to vmax\n
+ * - <b> min: </b> The value where outout will be changed to vmin\n
+ * - <b> vmax:</b>  The output value above the threshold \n
+ * - <b> vmin:</b>  The output value below the threshold \n
+ * <li><b>bound:</b> Determine if a value is inside a bound \n  
+ * - <b> max:</b> The maximum value \n
+ * - <b> min:</b> The minimum value \n
+ * - <b> vin:</b> The output value when inside the bound \n
+ * - <b> vout:</b> The output value when outside the bound \n
+ * </ul>
+ * All of the above tags has the followin attributes
+ * Example from a setup:
+ @verbatim 
+<module type="threshold" name="thralarms" verbose="0">
+  <threshold thr="cmdvars.stoalarm_min#1.5" name="storage" vmax="0" vmin="1" event="adc.adc1" text="Niveau lagertank" unit="!$"/>
+  <threshold max="cmdvars.gwpump_max#2.3" min="cmdvars.gwpump_min#1.9" name="gwpump" vmax="0" vmin="1" 
+		event="adc.adc1" text="Pumpestyring" />
+</module>
+@endverbatim
+ @}
+*/
+
+
 
 /**
  * @ingroup modules 
@@ -380,7 +418,7 @@ int thrhld_update(struct thrhld *thrh, struct timeval *tv)
 			thrh->cur_out = thrh->min_out;
 			break;
 		  default:
-			PRINT_ERR("Unknown state : %d , \n",thrh->state ); 
+			PRINT_ERR("Unknown state : %d , \n",thrh->state  ); 
 			thrh->cur_out = NULL;
 			break;
 		}
@@ -388,9 +426,11 @@ int thrhld_update(struct thrhld *thrh, struct timeval *tv)
 		if(thrh->cur_out){
 			struct uni_data *outdata = evalue_getdata(thrh->cur_out);
 			
-			if(outdata){
-				PRINT_MVB(&thrh->thrhsmod->base,"Sending value state change : %d , \n",thrh->state ); 
+			if(outdata && outdata->type != DATA_FLOW){
+				PRINT_MVB(&thrh->thrhsmod->base,"Sending value state change : '%s' type '%s' \n",
+						  (thrh->state>=0)?throstats[thrh->state]:"none" , uni_data_str_type(outdata->type) ); 
 				evalue_setdata(thrh->value_out, outdata, tv);
+				uni_data_delete(outdata);
 			}
 		}
     }
@@ -410,8 +450,10 @@ void thrhld_value_callback(EVAL_CALL_PAR)
 	if(!outdata)
 		return;
 
-	PRINT_MVB(&thrh->thrhsmod->base,"Sending value update : %d , \n",thrh->state ); 
+	PRINT_MVB(&thrh->thrhsmod->base,"Sending value update : %s , type %s \n",(thrh->state>=0)?throstats[thrh->state]:"none", uni_data_str_type(outdata->type) ); 
 	evalue_setdata(thrh->value_out, outdata,  &evalue->time);
+
+	uni_data_delete(outdata);
 
 }
 
@@ -432,8 +474,7 @@ struct event_handler handlers[] = {{.name = ""}};
 
 int start_boundary(XML_START_PAR)
 {
-    struct modules *modules = (struct modules*)data;
-    struct module_base* base = ele->parent->data;
+	struct module_base* base = ele->parent->data;
 	struct thrhsmod_object* this = ele->parent->data;
     PRINT_MVB(base, "Opening threshold %s", get_attr_str_ptr(attr, "event") );
 
@@ -447,8 +488,7 @@ int start_boundary(XML_START_PAR)
 
 int start_threshold(XML_START_PAR)
 {
-    struct modules *modules = (struct modules*)data;
-    struct module_base* base = ele->parent->data;
+	struct module_base* base = ele->parent->data;
 	struct thrhsmod_object* this = ele->parent->data;
     PRINT_MVB(base, "Opening threshold %s", get_attr_str_ptr(attr, "event") );
 
@@ -486,7 +526,7 @@ int module_init(struct module_base *base, const char **attr)
    base->verbose = 1;
 
 
-   
+   return 0;
 
 }
 

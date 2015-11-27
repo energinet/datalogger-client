@@ -156,7 +156,7 @@ int module_base_send_event(struct module_event *event);
 
 
 /**
- * Get an event of the name, <ename>
+ * Get an event of the name, \<ename>
  * @param module_list The list of all modules
  * @param name The search name
  * @param mask The search event flag mask

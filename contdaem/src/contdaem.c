@@ -31,17 +31,66 @@
 #include "module_base.h"
 #include "module_tick_master.h"
 
+#ifndef PLUGINDIR
+/**
+ * Default plugin directory */
+#define PLUGINDIR "/usr/share/control-daemon/plugins"
+#endif
+/**
+ * Default pid file path */
 #define DEFAULT_PIDFILE   "/var/run/contdaem.pid"
+/**
+ * Default configuration file path  */
 #define DEFAULT_CONFFILE  "/etc/contdaem.conf"
+/**
+ * Default tick interval in ms  */
 #define DEFAULT_TICKINT (1000) /*ms*/
+/**
+ * Default second alignment
+ * See @p sec_align in @ref module_tick_master_init
+ */
 #define DEFAULT_TICKSECAL (1) 
 
 
+/**
+ * @page cmd_options Command line options
+ * As default the contdaem will start as a daemon in background using the default configuration file, @p /etc/contdaem.conf,
+ * defined in @ref DEFAULT_CONFFILE, and the default plugin directory, @p /usr/share/control-daemon/plugins defined in 
+ * @ref PLUGINDIR.
+ * The availble options are:
+ * <ul>
+ *  <li><b> -m \<conf>:</b> Set module configuration file.
+ *  <li><b> -P \<dir>:</b> Set plugin directory.
+ *  <li><b> -p \<dir>:</b> Set extra plugin directory.
+ *  <li><b> -l \<list>:</b> Module load list. This can enable the modules which is disabled in the configuration file.
+ *  <li><b> -t \<ms>:</b> Set tick interval in milliseconds. Default is 1000ms which is one tick per second. 
+ *  <li><b> -d \<dbglev>:</b>Set debug level:
+ *  <li><b> -f:</b> Run the application in forground.
+ *  <ul>
+ *   <li><b> 0 :</b> no debug (default)
+ *   <li><b> 1 :</b> Some debug  
+ *   <li><b> 2 :</b> More debug  
+ *   <li><b> 3 :</b> A lot of debug  
+ *  </ul>
+ *  <li><b> -h:</b> Show help.
+ * </ul>
+
+
+ * @see HelpText
+ */
+
+/**
+ * Command line options 
+ */
 const  char *HelpText =
  "contdaem: Daemon for logging data and controling peripherals ... \n"
  " -m <conf>    : Set module configuration file (default "DEFAULT_CONFFILE")\n"
  " -P <dir>     : Set plugin directory (default "PLUGINDIR")\n"
  " -p <dir>     : Set extra plugin directory\n"
+ " -l <list>    : Module load list. This can enable the modules which is disabled in the configuration file\n"
+ " -t <ms_sec>  : Tick interval in milliseconds (default 1000ms, one tick per second)\n"
+ " -f           : Run the application in forgroun\n"
+ " -d <dbglev>  : Set debug level. 0: none (default), 1: some , 2: more ... \n"
  " -h           : Help (this text)\n"
  "Christian Rostgaard, February 2010\n" 
  "";
@@ -254,7 +303,6 @@ int main(int narg, char *argp[])
 
     module_tick_master_stop(&tick_master);
 
-    return 0;
-    
+    exit(EXIT_SUCCESS);
     
 }

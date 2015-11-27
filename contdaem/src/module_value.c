@@ -25,6 +25,7 @@
 #include <string.h>    
 #include <sys/time.h>
 #include <assert.h>
+#include <limits.h>
 
 void evalue_callback_run(struct evalue* evalue);
 
@@ -48,7 +49,7 @@ int evalue_ewrite(struct event_type *event, struct uni_data *data)
 {
     struct evalue* evalue = (struct evalue* )event->objdata;
 
-    evalue_setf(evalue, uni_data_get_value(data));
+    evalue_setf(evalue, uni_data_get_fvalue(data));
     
     return 0;
 }
@@ -64,9 +65,7 @@ int is_text(const char *str)
         char c = str[i];
         if(c >= '0' && c <= '9')
             continue;
-        else if (c == ','){
-            continue;
-        } else if (c == '.'||c == '-'){
+        else if (c == ',' || c == '.'|| c == '-' || c == ':'){
             continue;
         } else {
             return 1;
@@ -80,7 +79,8 @@ int is_text(const char *str)
 
 
 
-void evalue_init(struct evalue* evalue, struct module_base *base, const char *name,  const char *subname, const char *param, unsigned long flags, const char *unit, const char *hname)
+void evalue_init(struct evalue* evalue, struct module_base *base, const char *name,  
+		 const char *subname, const char *param, unsigned long flags, const char *unit, const char *hname)
 {
     char vname[256];  
     
@@ -95,8 +95,9 @@ void evalue_init(struct evalue* evalue, struct module_base *base, const char *na
 
     evalue->name = strdup(vname);
     evalue->base = base;
-    evalue->value = 0;
-	evalue->callback = NULL;
+    //evalue->value = 0; /* obs */ /* ToDo: init uni_data */
+    evalue->uvalue = NULL; /* ToDo: Test */
+    evalue->callback = NULL;
 
     if(param){
 	if(is_text(param)){
@@ -108,20 +109,26 @@ void evalue_init(struct evalue* evalue, struct module_base *base, const char *na
 		memcpy(event, param, len);
 		event[len] = '\0';
 		value++;
-		sscanf(value, "%f", &evalue->value);
+		//sscanf(value, "%f", &evalue->value); /* obs */ /* ToDo: Erstatte med uni_data_create_from_str agtig */
+		evalue->uvalue = uni_data_create_from_typstr(value); /* ToDo: Test */
 	    }else{
-		evalue->value = 0;
+		//evalue->value = 0; /* obs */ /* ToDo: Erstatte med uni_data_create_from_str agtig */
+		evalue->uvalue = uni_data_create_float(0); /* ToDo: test */
 		strcpy(event, param);
 	    }
-
+	    
 	    PRINT_MVB(base, "'%s' '%s'", event, value);
 	    evalue_subscribe(evalue, event, FLAG_ALL);
 	} else {
-	    sscanf(param, "%f", &evalue->value);
+	    
+	    //			sscanf(param, "%f", &evalue->value); /* obs */
+	    evalue->uvalue = uni_data_create_from_typstr(param); /* ToDo: Test */
 	}
     }
     
-
+    if(!evalue->uvalue)
+	evalue->uvalue = uni_data_create_float(0); /* ToDo: test */
+    
     evalue->event_type = event_type_create(base, evalue, vname, unit, hname,flags);
 
     assert(evalue->event_type);
@@ -130,7 +137,8 @@ void evalue_init(struct evalue* evalue, struct module_base *base, const char *na
     evalue->event_type->read = evalue_eread;
 
     pthread_mutex_init(&evalue->mutex, NULL);
-
+    evalue->cond_use = 0;
+    pthread_cond_init(&evalue->cond, NULL);
 
 }
 
@@ -156,18 +164,33 @@ struct evalue* evalue_create_attr(struct module_base *base, const char *param,
 }
 
 
-struct evalue* evalue_create(struct module_base *base, const char *name,  const char *subname, const char *param , unsigned long flags)
+struct evalue* evalue_create_ext(struct module_base *base, const char *name,  const char *subname, 
+				 const char *param , unsigned long flags, const char *unit, const char *hname)
 {
-
-    struct evalue* new = malloc(sizeof(*new));
+    
+    struct evalue *new = NULL;
+    
+  
+    new = malloc(sizeof(*new));
     assert(new);
 
-    evalue_init(new, base, name,  subname, param, flags, NULL, NULL);
+    evalue_init(new, base, name,  subname, param, flags, unit, hname);
 
     PRINT_MVB(base,"Created value %s, set value %f\n",  new->name,  evalue_getf(new));    
 
     return new;
 }
+
+struct evalue* evalue_create(struct module_base *base, const char *name,  const char *subname,
+			     const char *param , unsigned long flags){
+    if(!param){
+	PRINT_MVB(base,"Could not create evalue %s_%s: No param\n",  name, subname);    
+	return NULL;
+    }
+
+    return evalue_create_ext(base, name,  subname, param, flags, NULL, NULL);
+}
+
 
 void evalue_delete(struct evalue* evalue)
 {
@@ -177,6 +200,7 @@ void evalue_delete(struct evalue* evalue)
 	pthread_mutex_destroy(&evalue->mutex);
 	
 	free(evalue->name);
+	uni_data_delete(evalue->uvalue); /* ToDo: Test */
     
 	free(evalue);
 }
@@ -192,7 +216,8 @@ float evalue_getf(struct evalue* evalue)
 
     pthread_mutex_lock(&evalue->mutex);
 
-    value = evalue->value;
+    //value = evalue->value; /* obs */
+	value = uni_data_get_fvalue(evalue->uvalue); /* ToDo: Test */
 
     pthread_mutex_unlock(&evalue->mutex);
 
@@ -216,44 +241,93 @@ const char *evalue_unit(struct evalue* evalue)
 
 struct uni_data *evalue_getdata(struct evalue* evalue)
 {
-	return uni_data_create_float(evalue_getf(evalue));
+	struct uni_data *data;
+    
+	if(!evalue)
+		return 0;
+	
+    pthread_mutex_lock(&evalue->mutex);
+	
+	data =  uni_data_copy(evalue->uvalue);
+
+	pthread_mutex_unlock(&evalue->mutex);
+
+	return data;
 }
 
+void evalue_set__(struct evalue* evalue, struct timeval *now)
+{
+    struct timeval now_;
+	
+    if(!now){
+		gettimeofday(&now_, NULL);
+		now = &now_;
+    }
+
+	memcpy(&evalue->time, now, sizeof(struct timeval));
+	
+	if(evalue->cond_use > 0)
+		pthread_cond_broadcast(&evalue->cond);
+}
+
+
+/**
+ * Set evalue by uni_data 
+ * ToDo: Test.
+ */
+
+void evalue_setdata(struct evalue* evalue, struct uni_data *data, struct timeval *now)
+{
+	struct uni_data *outdata;
+	
+	pthread_mutex_lock(&evalue->mutex);
+
+	uni_data_set_data(evalue->uvalue, data);
+
+	outdata = uni_data_copy(evalue->uvalue); /* ToDo: Test */
+
+	evalue_set__(evalue, now);	
+
+	pthread_mutex_unlock(&evalue->mutex);
+	
+    module_base_send_event(module_event_create(evalue->event_type, outdata, &evalue->time));  
+}
+
+/**
+ * Seat float (level) value with time
+ */
 void evalue_setft(struct evalue* evalue, float value, struct timeval *now)
 {
-    struct uni_data *data;
-    struct timeval now_;
-    
-    if(!now){
-	gettimeofday(&now_, NULL);
-	now = &now_;
-    }
+    struct uni_data *outdata;
  
     pthread_mutex_lock(&evalue->mutex);
    
-    evalue->value = value;
+	uni_data_set_fvalue(evalue->uvalue, value);  /* ToDo: Test */
 
-    memcpy(&evalue->time, now, sizeof(struct timeval));
+	outdata = uni_data_copy(evalue->uvalue); /* ToDo: Test */
 
-    data = uni_data_create_float( evalue->value);
+	evalue_set__(evalue, now);	
 
     pthread_mutex_unlock(&evalue->mutex);
 
-    module_base_send_event(module_event_create(evalue->event_type, data, &evalue->time));  
+    module_base_send_event(module_event_create(evalue->event_type, outdata, &evalue->time));  
 
 }
 
-
+/**
+ * Seat float (level) value with time now
+ */
 void evalue_setf(struct evalue* evalue, float value)
 {
     evalue_setft(evalue, value, NULL);
 }
 
 
-void evalue_setdata(struct evalue* evalue, struct uni_data *data, struct timeval *now)
-{
-    evalue_setft(evalue, uni_data_get_fvalue(data), now);
-}
+/* void evalue_setdata(struct evalue* evalue, struct uni_data *data, struct timeval *now) */
+/* { */
+/* 	evalue_setdatat(struct evalue* evalue, struct uni_data *snow) */
+/*     evalue_setft(evalue, uni_data_get_fvalue(data), now); */
+/* } */
 
 int evalue_isvalid(struct evalue* evalue)
 {
@@ -262,12 +336,33 @@ int evalue_isvalid(struct evalue* evalue)
   return 0;
 }
 
+double evalue_elapsed(struct evalue* evalue, struct timeval *now)
+{
+    struct timeval now_;
+    struct timeval *upd  = &evalue->time;
+
+    if(now == NULL){
+	gettimeofday(&now_, NULL);
+	now = &now_;
+    }
+
+    double now_ms , upd_ms , diff;
+     
+    now_ms = (double)now->tv_sec*1000000 + (double)now->tv_usec;
+    upd_ms = (double)upd->tv_sec*1000000 + (double)upd->tv_usec;
+     
+    diff = (double)now_ms - (double)upd_ms;
+     
+    return diff/1000000;
+
+}
+
 int evalue_handler_rcv(EVENT_HANDLER_PAR)
 {
     struct evalue* evalue = (struct evalue*)handler->objdata;
     struct uni_data *data = event->data;
 	PRINT_MVB(evalue->base, "Setting value");
-    evalue_setft(evalue, uni_data_get_value(data), &event->time);
+    evalue_setdata(evalue, data, &event->time);
 	PRINT_MVB(evalue->base, "Running callbacks (callback %p)",evalue->callback );
     evalue_callback_run(evalue);
     return 0;
@@ -350,10 +445,10 @@ int evalue_insync(struct evalue* evalueA, struct evalue* evalueB,
     pthread_mutex_lock(&evalueB->mutex);
 
     if(valueA)
-		*valueA = evalueA->value;
+		*valueA = uni_data_get_fvalue(evalueA->uvalue);// evalueA->value; /* obs */
     
     if(valueB)
-		*valueB = evalueB->value;
+		*valueB = uni_data_get_fvalue(evalueB->uvalue);//evalueB->value; /* obs */
 
     if((evalueA->time.tv_sec==evalueB->time.tv_sec)&&
        (evalueA->time.tv_usec==evalueB->time.tv_usec)){
@@ -367,4 +462,73 @@ int evalue_insync(struct evalue* evalueA, struct evalue* evalueB,
     
     return insync;
     
+}
+
+
+int evalue_wait__(struct evalue* evalue, int timeout)
+{
+	int ret;
+
+	if(evalue->cond_use < 0)
+		return -EFAULT;
+
+	evalue->cond_use++;
+
+	if(timeout){
+		struct timespec ts_timeout;
+		clock_gettime(CLOCK_REALTIME, &ts_timeout);
+		ts_timeout.tv_sec += timeout/1000;
+		ts_timeout.tv_nsec += (timeout%1000)*1000000;
+		ret = pthread_cond_timedwait(&evalue->cond, &evalue->mutex, &ts_timeout);
+	} else {
+		ret = pthread_cond_wait(&evalue->cond, &evalue->mutex);
+	}
+
+	evalue->cond_use--;
+
+	return ret;
+	
+}
+
+
+
+int evalue_wait(struct evalue* evalue, int timeout)
+{
+	int ret;
+
+	pthread_mutex_lock(&evalue->mutex);
+	ret = evalue_wait__(evalue, timeout);
+	pthread_mutex_unlock(&evalue->mutex);
+
+	return ret;
+}
+
+
+
+int evalue_wait_value(struct evalue* evalue, float value, int timeout)
+{
+	int ret = 0;
+
+	pthread_mutex_lock(&evalue->mutex);
+	while(uni_data_get_fvalue(evalue->uvalue) != value){
+		fprintf(stderr, "value %f\n", uni_data_get_fvalue(evalue->uvalue) );
+		if((ret = evalue_wait__(evalue, timeout))){
+			break;
+		}
+		   
+	}
+	
+	pthread_mutex_unlock(&evalue->mutex);
+	
+	return ret;
+}
+
+
+void evalue_stopwait(struct evalue* evalue)
+{
+	pthread_mutex_lock(&evalue->mutex);
+	evalue->cond_use = -1;
+	pthread_cond_broadcast(&evalue->cond);
+    pthread_mutex_unlock(&evalue->mutex);
+
 }

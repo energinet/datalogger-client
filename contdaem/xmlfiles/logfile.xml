@@ -1,0 +1,86 @@
+<modules>
+  <module type="keyinput" name="inputs"  verbose="0" key_start="0x104">
+    <input device="/dev/input/event0"/>
+    <setup interval="300" />
+    <trigger text="Test knap" unit="" name="button" key_code="0x106" flags="log"/>
+  </module>
+  <module type="cmddb" name="cmdvars" verbose="1">
+    <var name="relay02" default="0" type="int" unit="/" text="Relæ 2" />
+    <var name="temp_set" default="30.0" type="float" text="Setpunkt" unit="/°C" flags="hide" />
+ </module>
+ <module type="wirlrec" name="wireless" verbose="true" flags="log,show" path="/dev/ttyUSB0">
+    <tempV1 name="rtind1" text="Sensor 1" adr="0xFA03" status_interval="60"/>
+    <tempV1hum name="rtind2" text="Sensor 2" adr="0xA10D"/>
+    <tempV1hum name="rtind2" text="Sensor 2" adr="0xa11c"/>
+    <tempV1hum name="rtind2" text="Sensor 2" adr="0xa11f"/>
+   </module>
+  <module type="readfile" name="pt1000"  verbose="0" flags="nolog">
+    <file path="/dev/adc00" name="temp1" text="Temperatur 1" unit="°C"
+	  interval="1" calc="eeprom:adc00_calc#poly1:a0.105b-273" multiread="10"
+	  max="100" min="-45" />
+    <file path="/dev/adc01" name="temp2" text="Temperatur 2" unit="°C"
+	  interval="1" calc="eeprom:adc01_calc#poly1:a0.105b-273" multiread="10"
+	  max="100" min="-45" />
+  </module>
+  <module type="threshold" name="thr" verbose="0" flags="nolog">
+    <hysteresis thr="cmdvars.temp_set#30.0" name="temp1" vmax="0" vmin="1"  
+		event="pt1000.temp1" text="Temperatur threshold" unit="./"/>
+ </module>
+  <module type="relay" name="relays" verbose="0">
+    <output device="/sys/class/leds/relay_%num%/brightness"/>
+    <listen num="1" event="thr.temp1" name="relay1" flags="nolog" />
+    <listen num="2" event="inputs.button" name="relay2" flags="nolog" />
+    <listen num="2" event="cmdvars.relay02" name="relay2" flags="nolog"/>
+  </module>
+  <module type="accumulate" name="acc" interval="30" verbose="0" >
+    <acc event="pt1000.*"/>
+    <acc event="pt1000.*"/>
+  </module>
+  <module type="sms" name="sms" verbose="1" >
+   <phone number="51243623" name="phone01" text="Dicktelefon" unit="sms"/>
+ </module>
+  <module type="sysinf" name="system"  verbose="0" flags="hide">
+    <info type="memfree" interval="300"/>
+    <info type="vmused" interval="300"/>
+    <info type="p_mrss" app="contdaem" pidfile="/var/run/contdaem.pid" 
+          interval="300"/>
+    <info type="p_mvsz" app="contdaem" pidfile="/var/run/contdaem.pid" 
+          interval="300"/>
+    <info type="p_mrss" app="licon" pidfile="/var/run/licon.pid" 
+          interval="300"/>
+    <info type="p_mvsz" app="licon" pidfile="/var/run/licon.pid" 
+          interval="300"/>
+    <filesize name="bigdb" path="/jffs2/bigdb.sql" 
+          interval="300"/>
+    <partfree name="root" path="/" interval="300"/>
+  </module>
+  <module type="licon" name="net"  verbose="0" flags="hide" >
+  </module>
+  <module type="readfile" name="lm81"  verbose="0" flags="hide">
+    <file path="/sys/bus/i2c/devices/0-002c/temp1_input" name="intern"
+          text="Intern" unit="°C" interval="300" calc="poly1:a0.001b0" />
+    <file path="/sys/bus/i2c/devices/0-002c/in0_input" name="v18"
+          text="1,8V" unit="V" interval="300" calc="poly1:a0.001b0" />
+    <file path="/sys/bus/i2c/devices/0-002c/in2_input" name="v33"
+          text="3,3V" unit="V" interval="300" calc="poly1:a0.001b0" />
+    <file path="/sys/bus/i2c/devices/0-002c/in3_input" name="v50"
+          text="5,0V" unit="V" interval="300" calc="poly1:a0.001b0" />
+  </module>
+  <module type="ledpanel" name="ledpanel" verbose="0">
+    <led name="net"  mode="r_ygb" def="3" event="net.state"/>
+    <led name="app"  mode="gyrb" def="3" event="system.state" />
+    <led name="1pt3"  mode="gr_rb" def="3" event="pt1000.fault"/>
+    <led name="4pt6"  mode="gr_rb" def="3" event="inputs.button" />
+    <led name="flow"  mode="grb" def="2" />
+    <led name="rs485" mode="bg" event="relays.relay1" def="0" />
+    <led name="cont"  mode="bg" event="relays.relay2" def="0" />
+  </module>
+  <module type="dblogger" name="dblogger" verbose="false">
+    <log event="*.*"/>
+  </module>
+  <module type="csvlogger" name="csvfile" verbose="true" show_hidden="true">
+    <log event="*.*"/>
+  </module>
+  <module type="socket" name="socket" verbose="0" />
+</modules>
+

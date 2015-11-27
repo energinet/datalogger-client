@@ -22,20 +22,15 @@
 #include "contdaem.h"
 #include "uni_data.h"
 
-/**
- * @defgroup module_util module utilities
- * @{
- * Usefulle utility library for module implementations.
- */
+
 
 /**
- * @defgroup module_util_calc calculation library
+ * @addtogroup general_xml
  * @{
- * Utilitiy for calculations. 
- * A calculation can be defined by 
- * a text string that can be placed in a configuration file. A calculation 
- * can be chained, so multible calculation can be defined in one line.\n
- * The calculation utilitys currently supports:
+ * @section calcxml The calc attribute
+ * The control daemon includes a general library for calculations, which modules can support.
+ * A calculation can be defined by a text string that can be placed in a configuration file.
+ * The calculation utilitys currently supports the following types fo callculation:
  * <ul>
  * <li><b>1st degree polynomial</b>\n
  *      @f${y=ax+b}@f$\n
@@ -52,8 +47,21 @@
  * <li><b>Minimum threshold</b>\n
  *      @f$y=\left\{\begin{array}{ll}0&\mbox{ if } x<t \\ x & \mbox{ if }  t \leq x  \end{array}\right @f$\n
  *      Syntax: \n
- *      <tt> thrhz:\<t> </tt> where \<t> is the threshold,  @f${a}@f$
+ *      <tt> thrhz:\<t> </tt> where \<t> is the threshold,  @f${a}@f$ \n
  *      Ex.: <tt>thrhz:0.3</tt>
+ * <li><b>Look up table</b>\n
+ *      A list of points mapped to a list of points.
+ *      Syntax: \n
+ *      <tt> ltable:[\<x1>:\<y1>],[\<x2>:\<y2>],[\<x3>:\<y3>],... </tt> Where \<x1> is mapped to \<y1>, \<x2> to \<y2> and so on. 
+ *      The values in between are mapped linary. Values outside the range result in NaN (Not a number value). Note 
+ *      that the @p inf and @p -inf value can be used for minus or plus infinity \n
+ *      Ex.: <tt>ltable:[-inf:0],[0:0],[10:5],[inf:5]</tt>\n
+ *      Will result in:\n
+ *      @f$y=\left\{\begin{array}{ll}0&\mbox{ if } x < 0 \\ x/2 & \mbox{ if }  0 \leq x < 10 \\ 5 & \mbox{ if }  x \geq 10  \end{array}\right @f$\n
+ *      Ex.: <tt>ltable:[-inf:0],[0:0],[5:10],[10:15],[inf:15]</tt>\n
+ *      Will result in:\n
+ *      @f$y=\left\{\begin{array}{ll} 0&\mbox{ if } x \leq 0 \\ 2x & \mbox{ if }  0 \leq x < 5 \\ x+5 & \mbox{ if }  5 \leq x < 10  \\ 15 & \mbox{ if }  x \geq 10  \end{array}\right @f$\n
+
  * <li><b>Equation from eeprom</b>\n
  *      Read an equation string from the eeprom. 
  *      Syntax: \n
@@ -63,9 +71,22 @@
  *      "adc02_calc" is the eeprom var name and "poly1:a0.105b-273" is the fallback.\n
  * </ul>
  * <b> Chaining </b>\n
- * Equations can be chained ising \b ; as separator. \n 
+ * A calculation can be chained, so multible calculation can be defined in one line.\n
+ * Equations can be chained using \b ; as separator. \n 
  * Ex.: <tt>poly1:a0.015462239b-4.3333;thrhz:0.3</tt>
  * The polynomium will be done first and the result will go through the threshold afterwards.
+ * @}
+ */
+
+
+/**
+ * @defgroup module_util module utilities
+ * @{
+ * Usefulle utility library for module implementations.
+ */
+
+/**
+ * @defgroup  module_util_calc calculation library
  */
 
 /**
@@ -81,6 +102,9 @@ enum calc_type{
     /**
      * Threshold. */
     CALC_THRH,
+    /**
+     * Table look up. */
+    LTABLE,
 };
 
 struct module_calc {
@@ -99,6 +123,9 @@ struct module_calc {
     /**
      * verbose calculation */
     int verbose;
+    /**
+     * custom calculating data object */
+    void *calcobj;
     /**
      * Next element in the calculation chain */
     struct module_calc *next;
@@ -123,6 +150,15 @@ struct module_calc *module_calc_create(const char *calc_str, int verbose);
  */
 float module_calc_calc(struct module_calc *calc, float input);
 
+
+/**
+ * Calculate a chain list
+ * @param calc The calculation chain
+ * @param input The input value
+ * @return The output value
+ */
+int module_calc_calc_int(struct module_calc *calc, int input);
+
 /**
  * @} 
  */
@@ -134,44 +170,59 @@ float module_calc_calc(struct module_calc *calc, float input);
  */
 
 
+enum fltconv{
+    CONV_NONE,
+    CONV_DIFF,
+    CONV_INTG,
+};
+
 /**
  * Flow to level conversion struct 
  */
-struct ftolunit{
+struct convunit{
     /**
      * Flow unit */
-    char *funit;
+    char *unit_in;
     /**
      * Level unit */
-    char *lunit;
+    char *unit_out;
     /**
      * Scale  */
     float scale;
     /**
      * Do differentiation */
-    int diff;
+    enum fltconv conv;
     /**
      * Number of decimals */
     int decs; 
 };
 
 /**
- * Search for a @ref ftolunit 
- * @param funit A flow unit
- * @param lunit A level unit
- * @return @ref ftolunit or NULL if not found
+ * Search for a @ref flow to level conversion 
+ * @param unit_in A flow unit
+ * @param unit_out A level unit
+ * @return @ref convunit  or NULL if not found
  */
-struct ftolunit *module_calc_get_flunit(const char *funit, const char *lunit);
+struct convunit *module_conv_get_level(const char *unit_in, const char *unit_out);
+
+/**
+ * Search for a @ref level to flow conversion 
+ * @param unit_in A level unit
+ * @param unit_out A flow unit
+ * @return @ref convunit or NULL if not found
+ */
+struct convunit *module_conv_get_flow(const char *unit_in, const char *unit_out);
+
 
 
 /**
- * Calc level from flow 
- * @param usec Microseconds for the differentiation
+ * Calc conversion 
+ * @param usec milliseconds for the differentiation
  * @param units The input value
  * @param ftlunit The @ref ftolunit 
  * @todo use msec
  */
-float module_calc_get_level(unsigned long usec, float units, struct ftolunit *ftlunit);
+float module_conv_calc(struct convunit *convunit, unsigned long msec, float units);
 
 
 

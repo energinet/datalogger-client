@@ -32,13 +32,9 @@
 
 
 /**
- * @ingroup modules 
+ * @addtogroup module_xml
  * @{
- */
-
-/**
- * @defgroup modules_ledpanel Ledpanel Module
- * @{
+ * @section sec_modules_ledpanel Ledpanel Module
  * Module for controling front ledbanels.\n
  * <b>Typename: "ledpanel" </b>\n
  * <b>Attributes:</b>\n
@@ -83,6 +79,18 @@
    <led name="cont"  mode="bgb" event="inputs.button" def="2" />
  </module>
  @endverbatim
+ * @}
+ */
+
+
+/**
+ * @ingroup modules 
+ * @{
+ */
+
+/**
+ * @defgroup modules_ledpanel Ledpanel Module
+ * @{
  */
 
 /**
@@ -348,7 +356,7 @@ void led_obj_delete(struct led_obj *led)
     if(!led)
 	return ;
 
-    acc_obj_delete(led->next);
+    led_obj_delete(led->next);
     free(led->red);
     free(led->green);
     free(led);
@@ -380,10 +388,14 @@ void led_obj_upd_output(struct led_obj *led)
  */
 void led_obj_set_mode(struct led_obj *led, int mode)
 {
+
+
     if(mode < 0 || mode >= MAXMODES){
-	PRINT_ERR("mode is out of bound %d (max%d)", mode, MAXMODES);
-	return;
+		PRINT_ERR("mode is out of bound %d (max%d)", mode, MAXMODES);
+		return;
     }
+
+
 
     led->set_color = led->modes[mode];
 
@@ -440,7 +452,7 @@ int led_obj_set_modes(struct led_obj *led, const char *modes)
 }
 
 /**
- * Receive handler for @ref led_obj 
+ * Receive handler
  * @memberof led_obj
  * @note See @ref EVENT_HANDLER_PAR for paramaters
  */
@@ -449,8 +461,11 @@ int handler_rcv(EVENT_HANDLER_PAR)
     struct ledpanel_object* this = module_get_struct(handler->base);
     struct led_obj *led = (struct led_obj*)handler->objdata;
     struct uni_data *data = event->data;
+	int value = uni_data_get_value(data);
     
-    led_obj_set_mode(led, data->value);
+	PRINT_MVB(&this->base,"Received event %s.%s %d \n",event->source->name, event->type->name, value ); 
+
+    led_obj_set_mode(led, value);
     
 
     return 0;
@@ -536,8 +551,7 @@ void* module_loop(void *parm)
 {
     struct ledpanel_object *this = module_get_struct(parm);
     struct module_base *base = ( struct module_base *)parm;
-    int retval;
-    time_t prev_time;
+        
     base->run = 1;
     
     while(base->run){ 

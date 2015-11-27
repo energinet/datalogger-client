@@ -22,6 +22,14 @@
 #include "module_tick.h"
 
 
+/**
+ * Init module tic master 
+ * @param master The master object
+ * @param ms_interval Interval in milliseconds 
+ * @param sec_align If 1 align the interval to whole seconds 
+ *                  Ex.: Interval 400 unaligned will be  0.000, 0.400, 0.800, 1.000 ... Unaligned it will be  0.000, 0.400, 0.800, 1.200
+ */
+
 int module_tick_master_init(struct module_tick_master *master, int ms_interval, int sec_align);
 
 void module_tick_master_stop(struct module_tick_master *master);
