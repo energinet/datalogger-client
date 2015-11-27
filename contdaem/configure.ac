@@ -1,4 +1,4 @@
-AC_INIT([Control Daemon], [0.1],
+AC_INIT([contdaem], [1.0],
         [LIAB ApS <info@liab.dk>],
         [ees-web])
 AC_CONFIG_SRCDIR(src/contdaem.c)
@@ -100,17 +100,17 @@ AC_DEFINE_UNQUOTED(PLUGINDIR,"${plugindir}",[Directory where module plugin files
 AC_MSG_RESULT(${plugindir})
 
 
-doxdir=`pwd`/../doxdoc
+doxdir=`pwd`/doxdoc
 AC_MSG_CHECKING(doxdir)
 AC_ARG_WITH(doxdir,
   [AC_HELP_STRING(
     [--with-doxdir=DIR],
-    [Where to put doxygen outout (default: ../doxdir)])],
+    [Where to put doxygen outout (default: doxdir)])],
   [ case "$withval" in
     yes|no)
     ;;
     * )
-      htmldir="$withval"
+      doxdir="$withval"
       ;;
     esac])
 AC_SUBST(doxdir)
