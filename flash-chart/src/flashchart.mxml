@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:fx="http://ns.adobe.com/mxml/2009" xmlns="*" xmlns:custom="components.*"
+                layout="absolute" xmlns:mx="library://ns.adobe.com/flex/mx"
+                backgroundColor="0xFFFFFF" xmlns:s="library://ns.adobe.com/flex/spark"
+                creationComplete="initApplication()"> 
+
+ <fx:Script>
+    <![CDATA[  
+    import mx.rpc.events.FaultEvent;
+    import mx.controls.Alert;
+    import mx.rpc.events.ResultEvent;
+    private var alert:Alert;
+    import mx.utils.ObjectUtil;
+    import mx.utils.ArrayUtil;
+    import mx.collections.XMLListCollection;
+    import mx.utils.*;
+    import components.RemoteUnit; 
+    import components.EventLog; 
+    import components.ExportCsvForm; 
+	import mx.graphics.Stroke;
+    import mx.charts.events.LegendMouseEvent;
+    import mx.charts.HitData;
+    import mx.charts.series.LineSeries;
+    import mx.charts.chartClasses.Series;
+    import mx.containers.TitleWindow;
+    import mx.managers.PopUpManager;
+    import mx.core.FlexGlobals;
+
+    [Embed(source="assets/reload.svg")] 
+    private var iconRefresh:Class; 
+
+    [Bindable]
+    private var baseUrl:String; 
+
+    [Bindable] 
+    private var remoteUnit:RemoteUnit;
+
+    public function timerHandler(event:TimerEvent):void {
+       trace("timerHandler: " + event);
+       retriveLines()
+    }
+
+    public function initApplication():void{
+        var url:String = FlexGlobals.topLevelApplication.url;
+        baseUrl = url.slice(0,url.lastIndexOf("/"));
+
+        trace("Startting Application:" + (new Date).toString()+ " url:" + baseUrl);
+
+	if(FlexGlobals.topLevelApplication.parameters.wsdl)
+            remoteUnit = new  RemoteUnit(FlexGlobals.topLevelApplication.parameters.wsdl);
+        else
+            remoteUnit = new  RemoteUnit();
+
+        if( FlexGlobals.topLevelApplication.parameters.iid ){
+              remoteUnit.setInstallationId(FlexGlobals.topLevelApplication.parameters.iid);
+        } 
+        
+
+        prograssForm.x = Areachart.width/2-100;
+        prograssForm.y =  Areachart.height/2-20;
+        trace("App height: " + this.height + " width: " + this.width);
+
+        remoteUnit.setProgressBar(progressBar);
+        remoteUnit.getETypes(eTypeReceved);
+                   
+        var myTimer:Timer = new Timer(1000*60*5, 0);
+        myTimer.addEventListener("timer", timerHandler);
+        myTimer.start();
+        if(FlexGlobals.topLevelApplication.parameters.unit ){
+              remoteUnit.setUnit(FlexGlobals.topLevelApplication.parameters.unit);
+        } 
+
+        if(FlexGlobals.topLevelApplication.parameters.desimals ){
+            Areachart.precision=FlexGlobals.topLevelApplication.parameters.desimals;
+        }
+
+        if(FlexGlobals.topLevelApplication.parameters.axis ){
+            Areachart.setUnitAxis(FlexGlobals.topLevelApplication.parameters.axis);
+        }
+
+        if(FlexGlobals.topLevelApplication.parameters.show ) {
+	     remoteUnit.setShow(FlexGlobals.topLevelApplication.parameters.show);
+        }
+
+
+
+        if(FlexGlobals.topLevelApplication.parameters.unitbox ) {
+	    var unitb:String = FlexGlobals.topLevelApplication.parameters.unitbox;
+	    unitBox.visible = true;
+	    unitBox.dataProvider = unitb.split(',');
+	} else {
+	    var fkunit:String = new String("");
+	    unitBox.dataProvider = fkunit.split(',');
+	}
+
+        mainForm.visible = true;
+
+
+	dateSelect.setCallback(retriveLines);
+
+
+    } 
+
+    private function rpcFaultHandler(evt:FaultEvent):void
+    {
+        trace("Fault => " + evt.fault.message);
+        var title:String = evt.type + " (" + evt.fault.faultCode +  ")";
+        var text:String = evt.fault.faultString;
+        alert = Alert.show(text, title);
+
+    } 
+
+    private function updateLines():void {
+       var lineArray:Array = new Array();
+
+       var eLogs:Array = remoteUnit.getEventLogs();
+       trace("update lines eLogs count " + eLogs.length);
+       Areachart.setSeries(eLogs);
+       return;
+       // for(var m:String in eLogs){
+       //     if(eLogs[m].enabled){
+       //         lineArray.push(eLogs[m].getLineSeries(remoteUnit.getUnit()));
+       //     }
+       // }
+       //  trace("update lines line count " + lineArray.length);
+       // Areachart.series =  lineArray;
+    }
+
+    private function retriveLines():void {
+
+	remoteUnit.getEvents(dateSelect.dateStart,dateSelect.dateEnd, updateLines );
+        trace("selected date start is: " + dateSelect.dateStart.toLocaleString());
+        trace("selected date end iss: " + dateSelect.dateEnd.toLocaleString());
+        Areachart.setTimeAxis(dateSelect.dateStart, dateSelect.dateEnd, dateSelect.interval);
+
+  }
+
+
+    private function getStatusHandler(e:ResultEvent):void 
+    {
+    }
+
+    private function eTypeReceved():void{
+       var date:Date = new Date();
+       dateChanged(date);
+       rp.dataProvider= remoteUnit.getEventLogs();
+
+       legendVBox.visible = true;
+    }
+
+    private function getDateTime(date:Date, hour:Number,
+                                 minute:Number):Number {
+
+        var setDate:Date = new Date(date);
+        setDate.setHours(hour, minute);
+        return setDate.time/1000;
+    }
+
+    public function myParseFunction(s:String):Date { 
+               var pxDate:Number = new Number(s);
+               var utcDate:Date = new Date((pxDate/*+3600*/)*1000);
+
+
+              return utcDate;
+    }
+
+    // Event handler for the DateField change event.
+    private function dateChanged(date:Date):void {
+        // trace("Date changed: " + dateFieldFrom.selectedDate.toString());
+         if (date == null){
+             trace("Date is NULL");
+         } else {
+             retriveLines();
+         }
+    }
+ 
+    private function legendClicked(item:EventLog,val:Boolean):void {
+         trace("LegendMouseClicked:" + item.name + "  " + val );
+
+         item.enabled = val;
+         updateLines();
+         
+    }
+
+    private function showExport():void {
+            // Create the TitleWindow container.
+            var helpWindow:TitleWindow = 
+          TitleWindow(PopUpManager.createPopUp(this, ExportCsvForm, false));
+
+            var exportForm:ExportCsvForm = helpWindow as ExportCsvForm;
+
+            // Add title to the title bar.
+//            helpWindow.title="Enter Login Information";
+
+            // Make title bar slightly transparent.
+            helpWindow.setStyle("borderAlpha", 0.9);
+
+            // Add a close button.
+            // To close the container, your must also handle the close event.
+            helpWindow.showCloseButton=false;
+            helpWindow.x = prograssForm.x;
+            helpWindow.y = prograssForm.y;
+              
+//               var endDate:Date = new Date(dateSelected);
+  	       var endDate:Date = dateSelect.dateEnd;
+//               endDate.setHours(24,0);
+               exportForm.baseUrl = baseUrl;
+               exportForm.startDate =  dateSelect.dateStart;
+               exportForm.endDate = endDate;
+ 	       exportForm.interval = remoteUnit.interval;
+	    
+               exportForm.setETypes(remoteUnit.getEventLogs());
+
+          }
+
+    public function changeShowUnit(unit:String):void {
+	trace("show unit changed to \"" + unit + "\"  ");
+	remoteUnit.setUnit(unit);
+	rp.dataProvider= remoteUnit.getEventLogs();
+	updateLines();
+    }
+
+    ]]>
+ </fx:Script>
+<fx:Declarations>
+ <mx:Iris id="irisIn" duration="500" showTarget="false"/>
+ <mx:Iris id="irisOut" duration="500" showTarget="true"/>
+ <mx:Zoom id="zoomIn" zoomWidthTo="1" zoomHeightTo="1" zoomWidthFrom=".0" zoomHeightFrom=".0"  />
+ <mx:Dissolve id="dissolveOut" duration="250" alphaFrom="1.0" alphaTo="0.0"/>
+ <mx:Dissolve id="dissolveIn" duration="500" alphaFrom="0.0" alphaTo="1.0"/>
+</fx:Declarations>
+
+ <mx:Form id="mainForm" paddingTop="0" paddingLeft="0" width="100%" height="100%"
+          paddingRight="0" paddingBottom="0" visible="true"
+          showEffect="{dissolveIn}">
+   <mx:HBox width="100%" height="100%">
+     <mx:VBox width="100%" height="100%">
+       <mx:Spacer height="20"/>
+       <custom:LogChart id="Areachart" 
+                        width="100%" height="100%"
+                        paddingLeft="5" 
+                        paddingRight="5" 
+                        showDataTips="true" > 
+       </custom:LogChart>            
+
+       <mx:HBox id="dateIf" width="100%">
+         <mx:ComboBox id="unitBox" visible="false" close="changeShowUnit(ComboBox(event.target).selectedItem as String)" />
+         <mx:Spacer width="30%"/>
+         <custom:DateSelect id="dateSelect" />
+         <mx:Spacer width="30%"/>
+         <mx:Button label="Refresh" icon="@Embed('assets/reload.png')"  click="retriveLines()"/>
+         <mx:Button label="Export" icon="@Embed('assets/save.png')" click="showExport()"/>
+       </mx:HBox>
+     </mx:VBox>
+     
+     <mx:VBox id="legendVBox" visible="true" verticalScrollPolicy="on"
+              showEffect="{irisIn}" height="{mainForm.height-2}">
+       <mx:Repeater id="rp">
+         <s:CheckBox id="chkBox" label="{String(rp.currentItem.name)}"
+                     selected="{rp.currentItem.enabled}"
+                     color="{rp.currentItem.color}" 
+		     symbolColor="{rp.currentItem.color}" 
+                     click="legendClicked(event.currentTarget.getRepeaterItem(),CheckBox(event.target).selected)"/>
+       </mx:Repeater>  
+  </mx:VBox>
+   </mx:HBox>
+ </mx:Form>
+ <mx:Form id="prograssForm" >
+   <mx:VBox>
+     <mx:HBox>
+       <mx:ProgressBar id="progressBar" labelPlacement="bottom" 
+                       minimum="0" visible="true" maximum="100"
+                       label="Henter data..." 
+                       direction="right" mode="manual" width="200"
+                       hideEffect="{irisOut}" indeterminate="true"/>
+     </mx:HBox>
+     
+   </mx:VBox>
+   
+ </mx:Form>
+
+
+ 
+</mx:Application>
+
