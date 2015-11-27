@@ -1,0 +1,61 @@
+<map>
+  <dir name="LD_LIAB">
+    <dir name="LN_HP">
+      <dir name="heating">
+	<item name="htret" ename="*.htret" type="r"/>
+	<item name="htfwd" ename="*.htfwd" type="r"/>	
+	<item name="htflow" ename="vfs.htflow" type="r"/>
+	<item name="hpwr" ename="wpower2.pwrh" type="r"/>
+	<item name="hpwr_count" ename="counters.pwrh" type="r"/>
+      </dir>
+      <dir name="hotwater">
+	<item name="whout" ename="*.whout" type="r"/>
+	<item name="wcin" ename="*.wcin" type="r"/>	
+	<item name="wflow" ename="vfs.wflow" type="r"/>
+	<item name="wpwr" ename="wpower1.pwrw" type="r"/>
+	<item name="wpwr_count" ename="counters.pwrw" type="r"/>
+      </dir>
+      <dir name="heatpump">
+	<item name="button" ename="inputs.button" type="r"/>	
+	<item name="tttop" ename="pt1000.tttop" type="r"/>
+	<item name="pwhp" ename="inputs.pwhp" type="r"/>
+	<item name="pwhp_count" ename="counters.pwhp" type="r"/>
+      </dir>
+      <dir name="extern">
+	<item name="rtind" ename="*.rtind" type="r"/>
+	<item name="rtind1" ename="*.rtind1" type="r"/>
+	<item name="rtind2" ename="*.rtind2" type="r"/>
+	<item name="rtind3" ename="*.rtind3" type="r"/>
+	<item name="rtind4" ename="*.rtind4" type="r"/>
+	<item name="rtind5" ename="*.rtind5" type="r"/>
+	<item name="rtind6" ename="*.rtind6" type="r"/>
+	<item name="rtind7" ename="*.rtind7" type="r"/>
+	<item name="rtoutd" ename="*.rtoutd" type="r"/>	
+	<item name="rtind" ename="*.rtind_temp" type="r"/>
+	<item name="rtind1" ename="*.rtind1_temp" type="r"/>
+	<item name="rtind2" ename="*.rtind2_temp" type="r"/>
+	<item name="rtind3" ename="*.rtind3_temp" type="r"/>
+	<item name="rtind4" ename="*.rtind4_temp" type="r"/>
+	<item name="rtind5" ename="*.rtind5_temp" type="r"/>
+	<item name="rtind6" ename="*.rtind6_temp" type="r"/>
+	<item name="rtind7" ename="*.rtind7_temp" type="r"/>
+	<item name="rtoutd" ename="*.rtoutd_temp" type="r"/>	
+	<item name="pwmtr" ename="inputs.pwmtr" type="r"/>
+	<item name="pwmtr_counter" ename="counters.pwmtr" type="r"/>
+      </dir>
+      <dir name="evu">
+	<item name="stval" ename="cmdvars.pws_relay1" type="r"/>
+	<item name="oper" cmd="pws_relay1" type="operate"/>
+	<item name="cancel" cmd="pws_relays1" type="cancel"/>
+      </dir>
+    </dir>
+    <dir name="LN_INT">
+      <dir name="lm81">
+	<item name="intern" ename="lm81.intern" type="r"/>
+	<item name="v18" ename="lm81.v18" type="r"/>	
+	<item name="v33" ename="lm81.v33" type="r"/>
+	<item name="v50" ename="lm81.v50" type="r"/>
+      </dir>
+    </dir>
+  </dir>
+</map>

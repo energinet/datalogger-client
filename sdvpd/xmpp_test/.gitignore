@@ -1,0 +1,5 @@
+/x86-debug/
+/arm-debug/
+/arm-release/
+/x86-release/
+/*.md~
