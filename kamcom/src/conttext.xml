@@ -1,0 +1,61 @@
+<modules>
+  <module type="keyinput" name="inputs"  verbose="0" key_start="0x104" flags="nolog">
+    <input device="/dev/input/event0"/>
+    <setup interval="1" />
+    <count text="El varmepumpe" unit="_J" upp="3600" name="pwhp"  key_code="0x105"  />
+    <trigger text="Test knap" unit="" name="button" key_code="0x106" flags="nolog,hide"/>
+    <trigger text="TEl varmepumpe" unit="" name="pwhp_p" key_code="0x105" flags="nolog,hide"/>
+  </module>
+  <module type="kamcom" name="kammeter" verbose="true" flags="log" path="/dev/ttyS1" baud="1200" interval="300">
+    <reg reg="0x3c" name="e1" text="Heat energy" unit="kWh" />
+    <reg reg="0x44" name="v1" text="Volumen" unit="m³"/>
+    <reg reg="0x54" name="va" text="Input A" unit="kWh" />
+    <reg reg="0x56" name="t1" text="Heat forward" unit="°C" interval="5" flags="nolog" />
+    <reg reg="0x57" name="t2" text="Heat return" unit="°C" interval="5"  flags="nolog" />
+  </module>
+  <module type="accumulate" name="acc" interval="300" verbose="0" >
+    <acc event="inputs.*"/>
+    <acc event="kammeter.t1"/>
+    <acc event="kammeter.t2"/>
+  </module>
+  <module type="sysinf" name="system"  verbose="0" flags="hide">
+    <info type="memfree" interval="300"/>
+    <info type="vmused" interval="300"/>
+    <info type="p_mrss" app="contdaem" pidfile="/var/run/contdaem.pid" 
+          interval="300"/>
+    <info type="p_mvsz" app="contdaem" pidfile="/var/run/contdaem.pid" 
+          interval="300"/>
+    <info type="p_mrss" app="licon" pidfile="/var/run/licon.pid" 
+          interval="300"/>
+    <info type="p_mvsz" app="licon" pidfile="/var/run/licon.pid" 
+          interval="300"/>
+    <filesize name="bigdb" path="/jffs2/bigdb.sql" 
+          interval="300"/>
+    <partfree name="root" path="/" interval="300"/>
+  </module>
+  <module type="licon" name="net"  verbose="0" flags="hide" >
+  </module>
+  <module type="readfile" name="lm81"  verbose="0" flags="hide">
+    <file path="/sys/bus/i2c/devices/0-002c/temp1_input" name="intern"
+          text="Intern" unit="°C" interval="300" calc="poly1:a0.001b0" />
+    <file path="/sys/bus/i2c/devices/0-002c/in0_input" name="v18"
+          text="1,8V" unit="V" interval="300" calc="poly1:a0.001b0" />
+    <file path="/sys/bus/i2c/devices/0-002c/in2_input" name="v33"
+          text="3,3V" unit="V" interval="300" calc="poly1:a0.001b0" />
+    <file path="/sys/bus/i2c/devices/0-002c/in3_input" name="v50"
+          text="5,0V" unit="V" interval="300" calc="poly1:a0.001b0" />
+  </module>
+  <module type="ledpanel" name="ledpanel" verbose="0">
+    <led name="net"  mode="r_ygb" def="3" event="net.state"/>
+    <led name="app"  mode="gyrb" def="3" event="system.state" />
+    <led name="1pt3"  mode="gr_rb" def="3" />
+    <led name="4pt6"  mode="gr_rb" def="3"  />
+    <led name="flow"  mode="grb" def="2" event="kammeter.fault"/>
+    <led name="rs485"  mode="bgb"  def="4" event="inputs.pwhp_p" />
+    <led name="cont"  mode="bgb" event="inputs.button" def="2" />
+  </module>
+  <module type="dblogger" name="dblogger" verbose="0">
+    <log event="*.*"/>
+  </module>
+  <module type="socket" name="socket" verbose="0" />
+</modules>
