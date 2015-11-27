@@ -138,7 +138,7 @@ int logdb_etype_list_next(sqlite3_stmt *ppStmt, int *eid, char **ename,
 		char **hname, char **unit, char **type);
 
 /* end list */
-int logdb_etype_list_end(struct logdb *db);
+int logdb_etype_list_end(sqlite3_stmt *ppStmt);
 
 int logdb_etype_count(struct logdb *db);
 

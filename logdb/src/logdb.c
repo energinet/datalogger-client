@@ -828,6 +828,10 @@ int logdb_etype_list_next(sqlite3_stmt *ppStmt, int *eid, char **ename,
 	return retval;
 }
 
+int logdb_etype_list_end(sqlite3_stmt *ppStmt){
+	return logdb_list_end(ppStmt);  
+}
+
 int logdb_etype_count(struct logdb *db) {
 	char sql[DB_QUERY_MAX];
 	int ptr = 0;
@@ -984,6 +988,14 @@ int logdb_delete(struct logdb *db, const char *table, const char *where) {
 	return retval;
 }
 
+
+int logdb_evt_remove_sent(struct logdb *db){
+
+	fprintf(stderr, "DELETING: time < lastsend \n");
+	return logdb_delete(db, DB_TABLE_NAME_EVENT_LOG, " time < (select lastsend from event_type where event_log.eid = event_type.eid) ");	
+}
+
+
 int logdb_evt_remove_old(struct logdb *db, time_t oldtime) {
 	char sql[DB_QUERY_MAX];
 	int ptr;
@@ -1003,7 +1015,7 @@ int logdb_evt_count_max(struct logdb *db) {
 	char *ret;
 	int count_max = 0;
 
-	ret = logdb_setting_get(db, "evt_count_max", vstr, 32);
+	ret = logdb_setting_get(db, "evt_count_max", vstr, sizeof(vstr));
 
 	if (ret) {
 		if(strcmp(ret, "cacheonly")==0)
@@ -1094,11 +1106,8 @@ int logdb_evt_maintain(struct logdb *db) {
 	printf("Count %d, count max %d\n", row_count, row_max);
 
 	if(row_max == DB_SAVE_CACHEONLY){
-		logdb_get_first_int(db, "SELECT MIN(lastsend) FROM event_type WHERE lastsend != 0", 0, &mintime);
-		row_max = 50000;
-	} 
-
-	if (row_count > row_max) {
+		logdb_evt_remove_sent(db);
+	} else if (row_count > row_max) {
 		logdb_get_first_int(db, "SELECT MIN(time) FROM event_log", 0, &mintime);
 		mintime += 60 * 60 * 24;
 	} 
