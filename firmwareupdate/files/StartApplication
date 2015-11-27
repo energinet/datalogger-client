@@ -1,0 +1,235 @@
+#!/bin/bash -x
+# To autoexecute this script on startup, add 'liabRUN=/jffs2/StartApplication'
+# to the boot-params in the bootloader.
+
+SYSTEMTYPE="SG"
+
+#
+# Copy the directory tree under '/jffs2/root' to '/'
+#
+if [ -d /jffs2/root ]; then
+    echo "Copying '/jffs2/root/*' to '/'"
+    cp -a /jffs2/root/* /.
+fi
+
+
+
+# To start an application in the background, use 'daemon':
+#daemon /root/myapplication
+# And give the application time to properly detach itself before we die:
+#sleep 1
+
+tar zxvf /jffs2/liabconnect.tar.gz  -C /
+tar zxvf /jffs2/contdaem.tar.gz -C /
+tar zxvf /jffs2/upnp.tgz  -C /
+
+
+
+if [ -f /sys/class/leds/relay_1/brightness ] ; then 
+    chmod 777 /sys/class/leds/relay_1/brightness
+    chmod 777 /sys/class/leds/relay_2/brightness
+    chmod 777 /sys/class/leds/relay_3/brightness
+    modprobe usbserial
+    insmod /jffs2/ftdi_sio.ko
+    SYSTEMTYPE="SG"
+fi
+
+
+
+if [ -f /sys/class/leds/relay-X1/brightness ] ; then 
+    chmod 777 /sys/class/leds/relay_X1/brightness
+    chmod 777 /sys/class/leds/relay_X2/brightness
+    chmod 777 /sys/class/leds/relay_X3/brightness
+    chmod 777 /sys/class/leds/relay_X4/brightness
+    gpioutil -od16 -sd16 #Enable 5v digital
+    SYSTEMTYPE="DIN"
+fi
+
+
+
+#cp usr/bin/3g /root/
+#cp usr/bin/tunnel /root/
+
+rm /etc/ppp/ip-up.d/0001starttunnel 
+
+modprobe admax1098
+modprobe madc78h98
+modprobe ad7927
+
+# Start usbdevice 
+modprobe g_ether
+ifconfig usb0 10.1.1.1 netmask 255.255.255.192 up
+udhcpd
+
+#make web commands work
+chmod a+w /jffs2
+chmod a+w /jffs2/cmdlist.db
+
+# revision A addon 
+if [ ! -f /dev/adc00 ] ; then 
+     mknod /dev/adc00 c 63 0
+     mknod /dev/adc01 c 63 1
+     mknod /dev/adc02 c 63 2
+     mknod /dev/adc03 c 63 3
+     mknod /dev/adc04 c 63 4
+     mknod /dev/adc05 c 63 5
+     mknod /dev/adc06 c 63 6
+     mknod /dev/adc10 c 63 7
+     mknod /dev/adc11 c 63 8
+     mknod /dev/adc12 c 63 9
+     mknod /dev/adc13 c 63 10
+     mknod /dev/adc14 c 63 11
+     mknod /dev/adc15 c 63 12
+     mknod /dev/adc16 c 63 13
+fi
+
+if [  $SYSTEMTYPE == "DIN" ] ; then
+    mknod /dev/adca1 c 63 16
+    mknod /dev/adca2 c 63 17
+    mknod /dev/adca3 c 63 18
+    mknod /dev/adca4 c 63 19
+
+fi
+
+
+if [ -f /sys/class/leds/usbpwr-top/brightness ] ; then 
+    echo "1" > /sys/class/leds/usbpwr-top/brightness
+fi
+if [ -f /sys/class/leds/usbpwr-bot/brightness ] ; then 
+    echo "1" > /sys/class/leds/usbpwr-bot/brightness
+fi
+
+DBFILESIZE=`ls -la /jffs2/bigdb.sql | awk '{ print $5}'`
+if [ $DBFILESIZE -ge  15000000 ];then
+    echo fault removing DB file
+    mv /jffs2/bigdb.sql /jffs2/bigdb.sql.corrupted
+    /usr/bin/logdbutil -S "db file was to big"
+fi
+
+DBFILESIZE=`ls -la /jffs2/bigdb.sql | awk '{ print $5}'`
+if [ $DBFILESIZE -ge  15000000 ];then
+    echo fault removing DB file
+fi
+
+
+/usr/bin/logdbutil -i
+if [ $? -eq 0 ]  ; then 
+    echo ok 
+else  
+    echo fault removing DB file
+    mv /jffs2/bigdb.sql /jffs2/bigdb.sql.corrupted
+    /usr/bin/logdbutil -S "db file to corrupted"
+fi
+
+if [ `grep adm9240 /var/log/messages | grep -c cold` -eq "1" ]; then
+    /usr/bin/logdbutil -S "cold booting"
+else
+    /usr/bin/logdbutil -S "warm booting"
+fi
+
+#copy licon.conf
+if [ -f /jffs2/licon.conf ] ; then 
+    cp /jffs2/licon.conf /etc/licon.conf
+else
+    if [ $SYSTEMTYPE == "SG" ] ; then
+	cp /etc/licon.d/sg_eth0_gprs /etc/licon.conf
+    else
+	cp /etc/licon.d/din_eth0_gprs /etc/licon.conf
+    fi
+fi
+
+#copy contdaem.conf
+if [ -f /jffs2/contdaem.conf ] ; then 
+    cp /jffs2/contdaem.conf /etc/contdaem.conf
+else 
+    if [ -f /jffs2/sgbox.xml ] ; then
+	cp /jffs2/sgbox.xml /etc/contdaem.conf
+    else
+	cp /jffs2/contdaem.org.conf /etc/contdaem.conf
+    fi
+fi
+
+#create mmsmap file if possible and needed
+if [ ! -f /jffs2/mmsmap.xml ] && [ -f /jffs2/mmsmap.org.xml ]; then
+	cp /jffs2/mmsmap.org.xml /jffs2/mmsmap.xml
+fi
+
+if [ `grep -c type=\"modbus /etc/contdaem.conf` -eq "1" ]; then
+    MODBUSPARAM="";
+    if [ `grep -A 3 type=\"modbus /etc/contdaem.conf | grep -c tty=\"/dev/ttyS1\"` -eq "1" ]; then
+	MODBUSPARAM=$MODBUSPARAM" -d /dev/ttyS1"
+    fi
+    
+    if [ `grep -A 3 type=\"modbus /etc/contdaem.conf | grep -c baud=\"9600\" ` -eq "1" ]; then
+	MODBUSPARAM=$MODBUSPARAM" -s 9600"
+    fi
+    
+    modbusd $MODBUSPARAM
+   
+fi
+
+sleep 2
+
+/usr/bin/contdaem 
+
+
+
+
+
+
+if /usr/bin/liabconnect -F ; then 
+    echo "liabconnect started"
+else
+    echo "liabconnect failed using alternative config"
+    if /usr/bin/liabconnect -F -c /etc/licon.d/sg_eth0_gprs ; then 
+	echo "liabconnect alt running"
+	/usr/bin/logdbutil -S "alternative licon config"
+    else
+	echo "liabconnect using atl at !!!"
+	/usr/bin/liabconnect -c /etc/licon.d/eth0_3g -c  /etc/licon.d/rpclient
+	/usr/bin/logdbutil -S "alternative licon config"
+    fi
+
+fi
+
+
+
+
+
+
+if [ ! `grep -c name=\"ntpd\" /etc/licon.conf` -eq "1" ]; then
+	ntpd -g -p /var/run/ntpd.pid
+	echo "ntpd started"
+fi
+
+
+
+# Start upnp
+/root/startupnp.sh 
+
+
+echo "STATE_CONNECTION=3g" > /tmp/config
+
+
+echo "08 */12	* * *	root  cd /root ; /usr/bin/logdbutil -m " >> /etc/crontab
+echo "*/5 *	* * *	root  rm /root/gsoap*  " >> /etc/crontab
+echo "14 14	* * *	root  /sbin/hwclock --systohc " >> /etc/crontab
+
+if [ -f /usr/bin/enstyrerapp ]; then
+    echo "23 */3	* * *	root  /usr/bin/enstyrerapp -w" >> /etc/crontab
+fi
+
+if [ -f /usr/bin/xmppwatchdog.sh ]; then
+	echo "*/30 *	* * *	root  /usr/bin/xmppwatchdog.sh" >> /etc/crontab
+fi
+
+echo "" >> /etc/crontab
+
+insmod /jffs2/softdog.ko
+/usr/sbin/watchdog
+
+#Reload klogd and syslog
+klogd -I
+kill -SIGHUP `cat /var/run/syslogd.pid`
+
+echo system type is $SYSTEMTYPE
