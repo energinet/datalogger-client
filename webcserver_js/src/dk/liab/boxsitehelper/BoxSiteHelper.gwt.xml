@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module rename-to='boxsitehelper'>
+  <!-- Inherit the core Web Toolkit stuff.                        -->
+  <inherits name='com.google.gwt.user.User'/>
+  <inherits name="com.google.gwt.json.JSON" /> 
+  <inherits name="com.google.gwt.http.HTTP" />
+  <!-- Inherit the default GWT style sheet.  You can change       -->
+  <!-- the theme of your GWT application by uncommenting          -->
+  <!-- any one of the following lines.                            -->
+  <inherits name='com.google.gwt.user.theme.clean.Clean'/>
+  <!-- <inherits name='com.google.gwt.user.theme.standard.Standard'/> -->
+  <!-- <inherits name='com.google.gwt.user.theme.chrome.Chrome'/> -->
+  <!-- <inherits name='com.google.gwt.user.theme.dark.Dark'/>     -->
+
+  <!-- Other module inherits                                      -->
+
+  <!-- Give default support value of no to unsupported browsers -->
+ <set-property name="canvasElementSupport" value="maybe">
+    <any>
+      <when-property-is name="user.agent" value="ie6" />
+      <when-property-is name="user.agent" value="ie8" />
+    </any>
+  </set-property>
+<!--  <replace-with class='com.google.gwt.dom.client.MyDOMImplIE8'>
+    <when-type-is class='com.google.gwt.dom.client.DOMImpl' />
+    <when-property-is name='user.agent' value='ie8'/>
+  </replace-with>
+  <replace-with class='com.google.gwt.dom.client.MyDOMImplIE8'>
+    <when-type-is class='com.google.gwt.dom.client.DOMImpl' />
+    <when-property-is name='user.agent' value='ie6'/>
+  </replace-with>-->
+
+  <!-- Specify the app entry point class.                         -->
+  <entry-point class='dk.liab.boxsitehelper.client.BoxSiteHelper'/>
+
+  <!-- Specify the paths for translatable code                    -->
+  <source path='client'/>
+  
+</module>
