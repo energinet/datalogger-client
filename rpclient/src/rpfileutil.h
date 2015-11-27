@@ -22,6 +22,8 @@
 #include <sys/stat.h>
 
 
+int rpfile_md5chk(unsigned char * testBuffer, size_t testLen, char* md5sum);
+
 int rpfile_md5(unsigned char * testBuffer, size_t testLen, char* obuf);
 
 int rpfile_read(const char *path, char **buffer, size_t *size, mode_t *mode);

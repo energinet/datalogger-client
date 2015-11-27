@@ -16,26 +16,12 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef RPCLIENT_SOAP_H_
-#define RPCLIENT_SOAP_H_
+#ifndef RPCLIENT_CRYPTO_H_
+#define RPCLIENT_CRYPTO_H_
 
+#ifdef    WITH_OPENSSL
+int CRYPTO_thread_setup();
+void CRYPTO_thread_cleanup();
+#endif /* WITH_OPENSSL */
 
-struct rpclient_soap {
-    const char *address;
-    const char *username;
-    const char *password;
-    const char *authrealm;
-    struct soap *soap;
-    struct http_da_info *dainfo;
-    int dbglev;
-};
-
-int rpclient_soap_init(struct rpclient_soap *rpsoap);
-
-void rpclient_soap_deinit(struct rpclient_soap *rpsoap);
-
-int rpclient_soap_hndlerr(struct rpclient_soap *rpsoap,struct soap *soap,  struct http_da_info *info, 
-			  int retries, const char *funname);
-
-
-#endif /* RPCLIENT_SOAP_H_ */
+#endif /* RPCLIENT_CRYPTO_H_ */

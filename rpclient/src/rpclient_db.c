@@ -29,20 +29,29 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
+#include <plugin/httpda.h>
+
+
 //#include <linux/in.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
+#include <syslog.h>
 
 //#include "boxcmdq.h"
 #include "rpserver.h"
 #include "rpclient_cmd.h"
 #include "rpclient_stfile.h"
+#include "rpclient_glob.h"
 #include "rpfileutil.h"
 #include "rpclient_soap.h"
 #include <cmddb.h>
+#include <assert.h>
 #include "version.h"
 
-enum iftypes {IF_IP, IF_NETMASK, IF_BROADCAST, IF_GATEWAY};
+
+
+char *device_name = NULL;
 
 
 char *platform_user_get(void);
@@ -51,9 +60,12 @@ char* date_to_str(time_t ttime);
 int get_iface_info(int type, const char *ifname, char *result, int len);
 
 
+
+
+
 void rpcutil_reboot(void){
     char *cmd = "reboot -f";
-    fprintf(stderr, "rpclient rebooting\n");
+    syslog(LOG_WARNING , "rpclient rebooting\n");
     system(cmd);    
 }
 
@@ -76,32 +88,30 @@ char *rpcutil_time_to_str(struct timeval *time)
 }
   
 
-int cmd_send_status(struct rpclient *client_obj, struct soap *soap, char *address) 
+int cmd_send_status(struct rpclient *client_obj, struct soap *soap, const char *address) 
 {
-     struct timeval last;
+     struct timeval stime;
      struct cmddb_cmd *stacmd = NULL, *ptr= NULL;
      
-     memset(&last, 0 , sizeof(last));
-     //stacmd = boxvcmd_get_upd(&last);
+     memset(&stime, 0 , sizeof(stime));
 
      stacmd =  cmddb_get_updates();
      ptr = stacmd;
-     printf("status first %p\n", ptr);
+     syslog(LOG_DEBUG, "status first cmd %p", ptr);
      while(ptr){
-	 printf("status cid %d, status %d\n",  ptr->cid, ptr->status);
-	 boxcmd_sent_status(client_obj, soap, address, ptr->cid, ptr->status, NULL, ptr->retval, ptr);
-	 printf(">>22\n");
-	 cmddb_sent_mark(ptr->cid, ptr->status);
-//	 boxvcmd_set_sent(ptr->cid, ptr->status, boxcmd_get_flags(ptr->name)&CMDFLA_KEEPCURR);
-	 printf(">>22\n");
-	 ptr = ptr->next;
+		 syslog(LOG_DEBUG,"status cmd: cid %d, status %d",  ptr->cid, ptr->status);
+		 stime.tv_sec = ptr->stime;
+		 boxcmd_sent_status(client_obj, soap, address, ptr->cid, ptr->status, &stime, ptr->retval, ptr);
+		 cmddb_sent_mark(ptr->cid, ptr->status);
+		 //	 boxvcmd_set_sent(ptr->cid, ptr->status, boxcmd_get_flags(ptr->name)&CMDFLA_KEEPCURR);
+		 ptr = ptr->next;
      }
-     printf(">>23\n");
      
      cmddb_sent_clean();
 
-     printf(">>24\n");
      cmddb_cmd_delete(stacmd);
+     
+     syslog(LOG_DEBUG, "status cmd ended");
      
      return 0;
 }
@@ -109,7 +119,7 @@ int cmd_send_status(struct rpclient *client_obj, struct soap *soap, char *addres
 
 
 
-int cmd_run(struct rpclient *client_obj, struct soap *soap, char *address, time_t time)
+int cmd_run(struct rpclient *client_obj, struct soap *soap, const char *address, time_t time)
 {
 
     struct cmdhnd_data data;
@@ -130,165 +140,179 @@ int cmd_run(struct rpclient *client_obj, struct soap *soap, char *address, time_
 }
 
 
-int file_set(struct rpclient *client_obj, struct soap *soap, char *address,  
-			 char *serverfile,char *filepath)
+int file_set(struct rpclient *client_obj, struct soap *soap, const char *address,  
+	     char *serverfile,char *filepath)
 {
-	struct boxInfo boxinfo;
-	struct filetransf filetf;
-	mode_t mode = 0666;
-	char md5sum[64]= "N/A";
-	size_t size  = 0;
-	char *data= NULL;
-	char fileid[64];
-	int retval;
-	rpclient_stfile_write("fileSet...");
-	rp_boxinfo_set(client_obj, &boxinfo);
+    struct boxInfo boxinfo;
+    struct filetransf filetf;
+    mode_t mode = 0666;
+    char md5sum[64]= "N/A";
+    size_t size  = 0;
+    char *data= NULL;
+    char fileid[64];
+    int retval, err;
+    rpclient_stfile_write("fileSet...");
+    syslog(LOG_DEBUG, "running %s", __FUNCTION__);
+    rp_boxinfo_set(client_obj, &boxinfo);
 
-	sprintf(fileid, "<%s@datalogger.liab.dk>", serverfile);
+    sprintf(fileid, "<%s@datalogger.liab.dk>", serverfile);
 
-	if(rpfile_read(filepath, &data , &size, &mode)<=0){ 
-		return SOAP_ERR; 
-	} 
+    if(rpfile_read(filepath, &data , &size, &mode)<=0){ 
+	return SOAP_ERR; 
+    } 
 
-	memset(&filetf, 0, sizeof(filetf));
+    memset(&filetf, 0, sizeof(filetf));
 
-	filetf.file_mode = mode; 
+    filetf.file_mode = mode; 
     rpfile_md5((unsigned char*)data, size, md5sum); 
     filetf.checksum  = strdup(md5sum);
     filetf.mineid    = strdup(fileid); 
 
-	soap_set_mime(soap, NULL, NULL); // enable MIME
+    soap_set_mime(soap, NULL, NULL); // enable MIME
 	
-	if (soap_set_mime_attachment(soap, data, size, SOAP_MIME_BINARY, "application/x-gzip", fileid, filepath, serverfile)) {
-		soap_clr_mime(soap); // don't want fault with attachments
-		free(data);
-		fprintf(stderr, "error...\n");
-		rpclient_stfile_write("fileSet fault: set mine");
-		return soap->error;
-	}
-	fprintf( stderr, "before gsoap\n");
+    if (soap_set_mime_attachment(soap, data, size, SOAP_MIME_BINARY, "application/x-gzip", fileid, filepath, serverfile)) {
+	soap_clr_mime(soap); // don't want fault with attachments
+	free(data);
+	syslog(LOG_ERR, "ERROR sending mine attachment");
+	rpclient_stfile_write("fileSet fault: set mine");
+	return soap->error;
+    }
+    
+    syslog(LOG_DEBUG, "before gsoap in %s", __FUNCTION__);
 
     struct rpclient_soap *rpsoap;
     rpsoap = client_obj->rpsoap;
-    soap->userid = rpsoap->username;
-    soap->passwd = rpsoap->password;
+    http_da_restore(soap, rpsoap->dainfo);
+    int retries = 0;
+    retval = -1;
 
-	if((retval = soap_call_liabdatalogger__fileSet(soap, address, NULL,  &boxinfo, &filetf, &retval))!= SOAP_OK){
-		char errtxt[1014];
-		fprintf(stderr, "Error in file_set\n");
-		soap_print_fault(soap, stderr);
-		soap_sprint_fault(soap, errtxt, sizeof(errtxt));
-		rpclient_stfile_write("fileSet fault: fileSet");
+    do{
+	err = soap_call_liabdatalogger__fileSet(soap, address, NULL,  &boxinfo, &filetf, &retval);
+	if(err == SOAP_OK){
+	    break;
 	}
-	fprintf( stderr, "after gsoap\n");
-	soap_clr_mime(soap); // don't want fault with attachments
-	free(data);
-	fprintf( stderr, "before free\n");
-	return 0;
+    }while(rpclient_soap_hndlerr(rpsoap,soap, rpsoap->dainfo, retries++, __FUNCTION__));
+   
+    syslog(LOG_DEBUG, "after gsoap in %s", __FUNCTION__);
+
+    soap_clr_mime(soap); // don't want fault with attachments
+    free(data);
+
+    return 0;
 }
 
-int file_get(struct rpclient *client_obj, struct soap *soap, char *address, char *filename, const char *destpath, const char *modestr){
+int file_get(struct rpclient *client_obj, struct soap *soap, const char *address, char *filename, const char *destpath, const char *modestr){
 
     int retval = 0;
     int err;
     struct filetransf filetf;
     struct boxInfo boxinfo;
 
-	rpclient_stfile_write("fileGet...");
+    syslog(LOG_DEBUG, "running %s: filname '%s', destpath '%s'", __FUNCTION__, filename, destpath);
+    rpclient_stfile_write("fileGet...");
 	
     rp_boxinfo_set(client_obj, &boxinfo);
 
-    fprintf(stderr, "runing get file %s ,%s\n",filename, destpath);
-
     struct rpclient_soap *rpsoap;
     rpsoap = client_obj->rpsoap;
-    soap->userid = rpsoap->username;
-    soap->passwd = rpsoap->password;
-
-    if((err = soap_call_liabdatalogger__fileGet(soap, address, NULL, filename, &boxinfo, &filetf))== SOAP_OK){
-		fprintf(stderr,"Received file (%d) id: %s\n", retval, filetf.mineid);
-        retval = 0;
-		struct soap_multipart *attachment;
-		
-		for (attachment = soap->mime.list; attachment; attachment = attachment->next){
-			printf("MIME attachment:\n");
-			printf("Memory=%p\n", (*attachment).ptr);
-			printf("Size=%ul\n", (*attachment).size);
-			printf("Encoding=%d\n", (int)(*attachment).encoding);
-			printf("Type=%s\n", (*attachment).type?(*attachment).type:"null");
-			printf("ID=%s\n", (*attachment).id?(*attachment).id:"null");
-			printf("Location=%s\n", (*attachment).location?(*attachment).location:"null");
-			printf("Description=%s\n", (*attachment).description?(*attachment).description:"null");
-	    
-			if(strcmp(attachment->id, filetf.mineid)==0){
-				char md5sum[32];
-				mode_t mode = (mode_t)filetf.file_mode;
-				
-				if(modestr){
-					retval = sscanf(modestr, "%o", &mode);
-					fprintf(stderr, "scanf %s, result %d %o\n", modestr, retval, mode);
-				}
-				
-				rpfile_md5( attachment->ptr, attachment->size, md5sum);
-				
-				fprintf(stderr, "(test)md5local %s md5remote %s\n", md5sum, filetf.checksum);
-				
-				
-				if(rpfile_md5chk(attachment->ptr, attachment->size, filetf.checksum)!=0){
-					fprintf(stderr, "sum FAULT\n");
-					rpclient_stfile_write("fileGet crc fault");
-					retval = -EILSEQ;
-				} else {
-					fprintf(stderr, "sum OK\n");
-					rpclient_stfile_write("fileGet crc ok");
-					rpfile_write(destpath, attachment->ptr, attachment->size, mode);
-				}
-			}
-			
-		} 
-    } else {
-		char errtxt[1024];
-		soap_sprint_fault(soap, errtxt, sizeof(errtxt));
-		rpclient_stfile_write("fileGet fault: %s", errtxt);
-        fprintf(stderr,"fileGet fault: %s\n", errtxt );
-		retval = -EBADRQC;
-    }
     
+    int retries = 0;
+    retval = -EBADRQC;
+    http_da_restore(soap, rpsoap->dainfo);
+    
+    do{
+	err = soap_call_liabdatalogger__fileGet(soap, address, NULL, filename, &boxinfo, &filetf);
+	if(err == SOAP_OK){
+	    syslog(LOG_DEBUG,"Received file (%d) id: %s", retval, filetf.mineid);
+	    retval = 0;
+	    struct soap_multipart *attachment;
+	    
+	    for (attachment = soap->mime.list; attachment; attachment = attachment->next){
+		syslog(LOG_DEBUG,"MIME attachment:");
+		syslog(LOG_DEBUG,"Memory=%p", (*attachment).ptr);
+		syslog(LOG_DEBUG,"Size=%ul", (*attachment).size);
+		syslog(LOG_DEBUG,"Encoding=%d", (int)(*attachment).encoding);
+		syslog(LOG_DEBUG,"Type=%s", (*attachment).type?(*attachment).type:"null");
+		syslog(LOG_DEBUG,"ID=%s", (*attachment).id?(*attachment).id:"null");
+		syslog(LOG_DEBUG,"Location=%s", (*attachment).location?(*attachment).location:"null");
+		syslog(LOG_DEBUG,"Description=%s", (*attachment).description?(*attachment).description:"null");
+		
+		if(strcmp(attachment->id, filetf.mineid)==0){
+		    char md5sum[32];
+		    mode_t mode = (mode_t)filetf.file_mode;
+		    
+		    if(modestr){
+			retval = sscanf(modestr, "%o", &mode);
+			syslog(LOG_DEBUG, "scanf %s, result %d %o\n", modestr, retval, mode);
+		    }
+		    
+		    rpfile_md5((unsigned char*) attachment->ptr, attachment->size, md5sum);
+		    
+		    syslog(LOG_DEBUG, "(test)md5local %s md5remote %s\n", md5sum, filetf.checksum);
+		    
+		    if(rpfile_md5chk((unsigned char*)attachment->ptr, attachment->size, filetf.checksum)!=0){
+			syslog(LOG_ERR, "check sum FAULT in get file");
+			rpclient_stfile_write("fileGet crc fault");
+			retval = -EILSEQ;
+		    } else {
+			syslog(LOG_DEBUG, "check sum OK in get file\n");
+			rpclient_stfile_write("fileGet crc ok");
+			rpfile_write(destpath, attachment->ptr, attachment->size, mode);
+			retval = 0;
+		    }
+		}
+		
+	    }
+	    break;
+	}
+	
+    }while(rpclient_soap_hndlerr(rpsoap,soap, rpsoap->dainfo, retries++, __FUNCTION__));
+
     return retval;
 }
 
-int hostret_handle(struct rpclient *client_obj, struct soap *soap, char *address, struct hostReturn *hostRet)
+int hostret_handle(struct rpclient *client_obj, struct soap *soap, const char *address, struct hostReturn *hostRet)
 {
     int i, retval;
 
     time_t stime = time(NULL);
    
+    if(cmd_db_lock()){
+	retval = -1;
+	goto out;
+    }
+
     for(i = 0; i < hostRet->cmdCnt; i++){
-		struct timeval ttime;
+	struct timeval ttime;
         struct boxCmd *cmd = hostRet->cmds + i;
 
-		rpcutil_time_from_str(&ttime, cmd->trigtime);
+	rpcutil_time_from_str(&ttime, cmd->trigtime);
 		
-		boxcmd_print(cmd);
+	boxcmd_print(LOG_DEBUG, cmd);
 		
-		if(cmd->status == CMDSTA_DELETIG)
-			retval = cmddb_mark_remove(cmd->sequence);
-		else 
-			retval = cmddb_insert(cmd->sequence,  cmd->name, cmd->params[0], 
-								  ttime.tv_sec, cmd->pseq, stime);
+	if(cmd->status == CMDSTA_DELETIG)
+	    retval = cmddb_mark_remove(cmd->sequence);
+	else 
+	    retval = cmddb_insert(cmd->sequence,  cmd->name, cmd->params[0], 
+				  ttime.tv_sec, cmd->pseq, stime);
     }
 
     cmddb_db_print();
 
     retval = cmd_run(client_obj, soap, address, stime);
 
-
     cmd_send_status(client_obj, soap, address);
 
     if(retval == RETURN_DO_REBOOT)
 	rpcutil_reboot();
 
-    return 0;
+    retval = 0;
+	
+ out:
+
+    cmd_db_unlock();
+
+    return retval;
 }
 
 
@@ -298,11 +322,11 @@ int hostret_handle(struct rpclient *client_obj, struct soap *soap, char *address
 int rp_boxinfo_set(struct rpclient *client_obj,struct boxInfo *boxinfo)
 {
     char result[20];
-    if(!get_iface_info(IF_IP, "eth0", result, sizeof(result)))
+    if(get_iface_info(IF_IP, "eth0", result, sizeof(result))<0)
         strcpy(result, "unknown");
 
     boxinfo->type     = strdup("test");
-    boxinfo->name     = platform_user_get();
+    boxinfo->name     = strdup(platform_get_name());
     if(client_obj->localid)
 	boxinfo->localid    = strdup(client_obj->localid);
     else
@@ -325,6 +349,7 @@ void rp_boxinfo_free(struct boxInfo *boxinfo)
     free(boxinfo->name);
     free(boxinfo->conn.if_name);
 }
+
 
 void measurments_free(struct measurments *meas)
 {
@@ -351,8 +376,7 @@ void measurments_free(struct measurments *meas)
 }
 
 
-
-int send_metadata(struct rpclient *client_obj,struct soap *soap,  char *address, struct logdb *db )
+int send_metadata(struct rpclient *client_obj,struct soap *soap,  const char *address, struct logdb *db )
 {
     static int update_sent = 0;
 
@@ -360,24 +384,26 @@ int send_metadata(struct rpclient *client_obj,struct soap *soap,  char *address,
     struct boxInfo *boxinfo = &metaData.boxInf;
     struct hostReturn hostRet;
     int err;
-    int i, retval;
+    int i;
+    int retval = -1;
     char etype_srv[32];
     char etype_cli[32];
 
-    //  struct logdb *db = logdb_open(DEFAULT_DB_FILE, 15000, 0);
+
     sqlite3_stmt * ppStmt = NULL; //logdb_etype_list_prep(db);
     rpclient_stfile_write("sendMetadata checking");
     if(logdb_setting_get(db, "etype_srv_updated", etype_srv, 32)&&logdb_setting_get(db, "etype_updated",etype_cli, 32)){
         if(strcmp(etype_cli, etype_srv)==0){
             /* allready updated */
-            printf("Etype is up to date\n");
-			if(update_sent){
-				retval = 0;
-				goto out;
-			}
+            syslog(LOG_DEBUG,"Etype is up to date\n");
+	    if(update_sent){
+		retval = 0;
+		goto out;
+	    }
         }
     }
-	rpclient_stfile_write("sendMetadata sending");
+    
+    rpclient_stfile_write("sendMetadata sending");
 
     update_sent++;
     
@@ -389,7 +415,7 @@ int send_metadata(struct rpclient *client_obj,struct soap *soap,  char *address,
     metaData.etypeCnt = logdb_etype_count(db);
     metaData.etypes = malloc(sizeof(struct measMeta)* metaData.etypeCnt);
     
-    fprintf(stderr,"sendMetadata cnt %d %p...\n", metaData.etypeCnt, metaData.etypes);        
+    syslog(LOG_DEBUG ,"sendMetadata cnt %d %p...\n", metaData.etypeCnt, metaData.etypes);        
 
     for(i = 0; i < metaData.etypeCnt; i++){
         int eid;
@@ -399,8 +425,6 @@ int send_metadata(struct rpclient *client_obj,struct soap *soap,  char *address,
                                        &unit, &type);
         if(retval != 1)
             break;
-        
-        //printf("test %d %i '%s' '%s' '%s' '%s' \n", i , eid, ename, hname, unit, type);
         
         etype->eid = eid;
         etype->ename = strdup(ename);
@@ -415,42 +439,34 @@ int send_metadata(struct rpclient *client_obj,struct soap *soap,  char *address,
             etype->type  = strdup(type);
         else
             etype->type = strdup("");
-
-        //printf("test %d %i '%s' '%s' '%s' '%s' \n", i , etype->eid, etype->ename, etype->hname, etype->unit, etype->type);
     }
 
 
     logdb_list_end(ppStmt);  
 
-    printf("ready to send\n");
+    syslog(LOG_DEBUG, "ready to send\n");
 
     struct rpclient_soap *rpsoap;
     rpsoap = client_obj->rpsoap;
-    soap->userid = rpsoap->username;
-    soap->passwd = rpsoap->password;
+    int retries = 0;
+    retval = -1;
 
-    if((err = soap_call_liabdatalogger__sendMetadata(soap, address, NULL, &metaData, &hostRet))== SOAP_OK){
-        hostret_handle(client_obj, soap,address,&hostRet);
-        fprintf(stderr,"sendMetadata success\n");
-        logdb_setting_set(db, "etype_srv_updated",  
-                          logdb_setting_get(db, "etype_updated",etype_cli, 32)); 
-        retval = 0;
-		rpclient_stfile_write("sendMetadata success");
-    } else {
-		char errtxt[1024];
-		soap_sprint_fault(soap, errtxt, sizeof(errtxt));
-		rpclient_stfile_write("sendMetadata fault: %s", errtxt);
-        fprintf(stderr,"sendMetadata fault: %s\n", errtxt );
-		retval = -1;
-    }
+    http_da_restore(soap, rpsoap->dainfo);
+
+    do{
+	err = soap_call_liabdatalogger__sendMetadata(soap, address, NULL, &metaData, &hostRet);
+	
+	if(err == SOAP_OK){
+	    syslog(LOG_DEBUG, "sendMetadata success\n");
+	    hostret_handle(client_obj, soap,address,&hostRet);
+	    logdb_setting_set(db, "etype_srv_updated",  logdb_setting_get(db, "etype_updated",etype_cli, 32)); 
+	    retval = 0;
+	    break;
+	} 
+    }while(rpclient_soap_hndlerr(rpsoap,soap, rpsoap->dainfo, retries++, __FUNCTION__));
+
 
   out:
-    
-    fprintf(stderr, "closing db %d\n", retval);
-    
-    //   logdb_close(db);
-
-    fprintf(stderr, "returned %d\n", retval);
     
     return retval;
  
@@ -458,7 +474,7 @@ int send_metadata(struct rpclient *client_obj,struct soap *soap,  char *address,
 }
 
 
-int send_measurments(struct rpclient *client_obj,struct soap *soap,  char *address, struct logdb *db )
+int send_measurments(struct rpclient *client_obj,struct soap *soap,  const char *address, struct logdb *db )
 {
     struct measurments meas;
     struct boxInfo *boxinfo = &meas.boxInf;
@@ -469,8 +485,8 @@ int send_measurments(struct rpclient *client_obj,struct soap *soap,  char *addre
     sqlite3_stmt * ppStmt = logdb_etype_list_prep(db);
     
     rp_boxinfo_set(client_obj, boxinfo);
-    printf("user %s\n", boxinfo->name);
-	rpclient_stfile_write("sendMeasurments...");
+    syslog(LOG_DEBUG, "%s: user %s\n", __FUNCTION__ , boxinfo->name);
+    rpclient_stfile_write("sendMeasurments...");
     meas.seriesCnt = logdb_etype_count(db);
     meas.series = malloc(sizeof(struct eventSeries)*meas.seriesCnt);
 
@@ -495,7 +511,7 @@ int send_measurments(struct rpclient *client_obj,struct soap *soap,  char *addre
 
         eseries->measCnt = 0;//logdb_evt_count(db, eseries->eid);
         eseries->meas = malloc(sizeof(struct eventItem)*1000);
-        printf("reading %s (%d) count %d %s\n", ename, eid, eseries->measCnt, eseries->ename);
+        syslog(LOG_DEBUG, "reading %s (%d) count %d %s\n", ename, eid, eseries->measCnt, eseries->ename);
         for(n = 0; n < 1000 ; n++){
             struct eventItem *eitem = eseries->meas +n;
             char etimestr[32];
@@ -508,10 +524,10 @@ int send_measurments(struct rpclient *client_obj,struct soap *soap,  char *addre
             
             eitem->time = strdup(etimestr);
             eitem->value = strdup(eval);
-            printf(".");
+
             eseries->measCnt++;
         }
-        printf("\n");
+
         if(etime)
             eseries->time_end   = date_to_str(etime);
         else
@@ -523,35 +539,64 @@ int send_measurments(struct rpclient *client_obj,struct soap *soap,  char *addre
 
     logdb_list_end(ppStmt);
 
-    printf("ready to send\n");
+    syslog(LOG_DEBUG, "ready to send\n");
     
     struct rpclient_soap *rpsoap;
     rpsoap = client_obj->rpsoap;
-    soap->userid = rpsoap->username;
-    soap->passwd = rpsoap->password;
+	//  soap->userid = rpsoap->username;
+    //soap->passwd = rpsoap->password;
 
-    if((err = soap_call_liabdatalogger__sendMeasurments(soap, address, NULL, &meas, &hostRet))== SOAP_OK){
-        hostret_handle(client_obj,soap,address,&hostRet);
+    int retries = 0;
+    retval = -1;
+    http_da_restore(soap, rpsoap->dainfo);
 
-        for(i = 0; i < meas.seriesCnt; i++){
-            struct eventSeries *eseries =  meas.series + i;
-            logdb_evt_mark_send(db, eseries->eid, eseries->time_end);
-        }
-        retval = 0;
-		rpclient_stfile_write("sendMeasurments success");
-		logdb_evt_maintain(db);
-    } else {
-		char errtxt[1024];
-		soap_sprint_fault(soap, errtxt, sizeof(errtxt));
-		rpclient_stfile_write("sendMeasurments fault: %s", errtxt);
-        fprintf(stderr,"sendMeasurments fault: %s\n", errtxt );
-        retval = -1;
-    }
+    do{
+	err = soap_call_liabdatalogger__sendMeasurments(soap, address, NULL, &meas, &hostRet);
+	if(err== SOAP_OK){
+	    hostret_handle(client_obj,soap,address,&hostRet);
+	    
+	    for(i = 0; i < meas.seriesCnt; i++){
+		struct eventSeries *eseries =  meas.series + i;
+		logdb_evt_mark_send(db, eseries->eid, eseries->time_end);
+	    }
+	    retval = 0;
+	    rpclient_stfile_write("sendMeasurments success");
+	    logdb_evt_maintain(db);
+	    break;
+	}
+    }while(rpclient_soap_hndlerr(rpsoap,soap, rpsoap->dainfo, retries++, __FUNCTION__));
     
     measurments_free(&meas);
-    //  logdb_close(db);
 
     return retval;
+}
+
+int rpclient_db_localid(struct rpclient *client_obj,struct soap *soap,  const char *address,  const char *localid, int dopair, struct rettext *rettxt )
+{
+    int err;   
+    struct boxInfo boxinfo;
+    int retval = -1;
+
+    rp_boxinfo_set(client_obj, &boxinfo);
+    
+    int retries = 0;
+    struct rpclient_soap *rpsoap ;
+    rpsoap = client_obj->rpsoap;
+
+    http_da_restore(soap, rpsoap->dainfo);
+
+    do{
+	err = soap_call_liabdatalogger__pair(soap, address, NULL,&boxinfo, (char*)localid, dopair, rettxt);
+	if(err==SOAP_OK){
+	    retval = 0;
+	    syslog(LOG_DEBUG, "socket_hndlr_localid_chk retval %d\n", rettxt->retval);
+	    break;
+
+	}
+    }while(rpclient_soap_hndlerr(rpsoap,soap, rpsoap->dainfo, retries++, __FUNCTION__));
+ 
+    return retval;
+
 }
 
 
@@ -595,6 +640,8 @@ float platform_get_uptime(void)
 
 
 
+
+
 char *platform_conf_get(const char *name)
 {
     FILE *file;
@@ -607,7 +654,7 @@ char *platform_conf_get(const char *name)
     file = fopen("/tmp/optionsfile", "r");
     
     if(file == NULL) {
-        fprintf(stderr,"%s(): %d: Error opening file '%s'\n", __FUNCTION__, __LINE__, "/tmp/optionsfile");
+        syslog(LOG_ERR,"%s(): %d: Error opening file '%s'\n", __FUNCTION__, __LINE__, "/tmp/optionsfile");
         return NULL;
     }
 
@@ -656,9 +703,31 @@ char *platform_user_get(void)
 
     free(hwa);
 
-    fprintf(stderr, "error reading mac: sscanf returned %d\n", retval);
+    syslog(LOG_ERR, "error reading mac: sscanf returned %d\n", retval);
 
     return NULL;
+}
+
+
+
+const char *platform_get_name()
+{
+    if(!device_name){
+	char mac[20];
+	if(get_iface_info(IF_MAC, "eth0", mac, sizeof(mac))<0)
+	    strcpy(mac, "unknown");
+	device_name = strdup(mac);
+    }    
+    
+    return device_name;   
+}
+
+void platform_set_name(const char*  name)
+{
+    if(device_name)
+	free(device_name);
+    
+    device_name = strdup(name);
 }
 
 
@@ -672,87 +741,90 @@ void longtoip(char *ip, int len, unsigned long val) {
 
 
 
-int get_iface_info(int type, const char *ifname, char *result, int len)
+int get_iface_info(int type, const char *ifname, char *result, int maxlen)
 {
-  int retval = 0;
-  struct ifconf ifc; 
-  struct ifreq ifreq,*ifr; 
-  int sd;
-  struct in_addr *ia;
-      
-  sd = socket(AF_INET, SOCK_STREAM, 0); 
+    int retval = 0;
+    //, n;
+    //struct ifconf ifc; 
+    //  struct ifreq ifreq,ifr; 
+  struct ifreq ifr; 
+  int sock;
+  //struct in_addr *ia;
+  char *p;
+
+  
+  assert(ifname);
+  assert(result);
+
+  sock = socket(AF_INET, SOCK_STREAM, 0); 
+
+  if(sock == -1){
+      syslog(LOG_ERR, "error opening socket ifconfiguration %d\n", errno);
+      return -1;
+  }
+
+  strncpy(ifr.ifr_name,ifname,sizeof(ifr.ifr_name)-1);
+  ifr.ifr_name[sizeof(ifr.ifr_name)-1]='\0';
 
   switch(type) {
-
-    case IF_IP:
-      {
-        int n; 
+  case IF_IP:    {
+      if (ioctl(sock, SIOCGIFADDR, &ifr) < 0) { 
+	  syslog(LOG_ERR, "error retreving SIOCGIFADDR %d\n", errno);
+          return -1;
+      } 
+      p=inet_ntoa(((struct sockaddr_in *)(&ifr.ifr_addr))->sin_addr);
+      strncpy(result,p,maxlen-1);
+      result[maxlen-1]='\0';
+      break;   
+  }
+  case IF_NETMASK: {
+      if (ioctl(sock, SIOCGIFNETMASK, &ifr) < 0) { 
+	  syslog(LOG_ERR, "error retreving SIOCGIFNETMASK %d\n", errno);
+          return -1;
+      }
+      p=inet_ntoa(((struct sockaddr_in *)(&ifr.ifr_netmask))->sin_addr);
+      strncpy(result,p,maxlen-1);
+      result[maxlen-1]='\0';
+      break;
+  }
+  case IF_MAC: {
+      int len = 0, i;
+      if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0) {
+	  syslog(LOG_ERR, "error retreving SIOCGIFHWADDR %d\n", errno);
+          return -1;
+      }
+      for (i=0; i<6; i++) {
+	  len+=snprintf(result+len, maxlen-len-1, "%02X",
+		      (int)(unsigned int)(unsigned char)ifr.ifr_hwaddr.sa_data[i]);
+      }
+      result[maxlen-1]='\0';
+      break;
+  }
+  case IF_GATEWAY: {
+      FILE *fp;
+      int flags;
+      unsigned long gw=0;
       
-        ifc.ifc_buf = NULL; 
-        ifc.ifc_len = sizeof(struct ifreq) * 10; 
-        ifc.ifc_buf = realloc(ifc.ifc_buf, ifc.ifc_len); 
-        
-        if (ioctl(sd, SIOCGIFCONF, &ifc) < 0) { 
-          return retval;
-        } 
-        
-        ifr = ifc.ifc_req; 
-        for (n = 0; n < ifc.ifc_len; n += sizeof(struct ifreq)) { 
-          ia= (struct in_addr *) ((ifr->ifr_ifru.ifru_addr.sa_data)+2); 
-          if(strcmp(ifr->ifr_ifrn.ifrn_name, ifname) == 0) {
-            if(result) {
-              snprintf(result, len, "%s", (char *)inet_ntoa(*ia)); 
-              retval = 1;
-              break; 
-            }
-          } 
-          ifr++; 
-        }
-        
-        free(ifc.ifc_buf); 
-      }
-      break;
-
-    case IF_NETMASK:
-      strncpy(ifreq.ifr_name, ifname, sizeof(ifreq.ifr_name));
-      if (ioctl(sd, SIOCGIFNETMASK, &ifreq) == 0) {
-        ia= (struct in_addr *) ((ifreq.ifr_ifru.ifru_addr.sa_data)+2); 
-        if(result) {
-          snprintf(result, len, "%s", (char *)inet_ntoa(*ia)); 
-          retval = 1;
-          break;
-        }
-      }
-      break;
-
-    case IF_GATEWAY:
-      {
-        FILE *fp;
-//        int bytes;
-        int flags;
-        unsigned long gw=0;
-
-        if((fp = fopen("/proc/net/route", "r"))) {
+      if((fp = fopen("/proc/net/route", "r"))) {
           char line[1024];
-
+	  retval = -1;
           while( fgets(line, sizeof(line), fp) ) {
-            if(strstr(line, ifname)) {
-                sscanf(line, "%*s %*x %lx %d %*d %*d %*d %*x %*d %*d %*d",
-                              &gw, &flags);
-              if(flags & 0x2) {
-                if(result)
-                  longtoip(result, len, gw);
-                retval = 1;
-              }
-            }
+	      if(strstr(line, ifname)) {
+		  sscanf(line, "%*s %*x %lx %d %*d %*d %*d %*x %*d %*d %*d",
+			 &gw, &flags);
+		  if(flags & 0x2) {
+		      longtoip(result, maxlen, gw);
+		      retval = 0;
+		  }
+	      }
           }
           fclose(fp);
-        }
       }
       break;
   }
-
-  close(sd);
+  }
+  
+  close(sock);
 
   return retval;
 }

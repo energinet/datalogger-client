@@ -35,6 +35,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <assert.h>
+#include <syslog.h>
 
 #include "rpclient_soap.h"
 #include "rpclient_db.h"
@@ -83,11 +84,11 @@ int boxcmd_run_system(const char *format, ...)
     vsnprintf(cmd, sizeof(cmd), format, ap);
     va_end(ap);
 
-    fprintf(stderr, "executing: %s\n", cmd);
+    syslog(LOG_INFO, "executing: %s\n", cmd);
 
     status = system(cmd); 
     if(status == -1){
-        fprintf(stderr, "Error running \"%s\"\n", cmd);
+        syslog(LOG_ERR, "Error running \"%s\"\n", cmd);
         return -EFAULT;
     } 
     
@@ -96,7 +97,7 @@ int boxcmd_run_system(const char *format, ...)
 
 
 int rp_boxinfo_set(struct rpclient *client_obj, struct boxInfo *boxinfo); //ToDo: header + reorder functions 
-int file_get(struct rpclient *client_obj,struct soap *soap, char *address, char *filename, const char *destpath, const char *modestr);
+int file_get(struct rpclient *client_obj,struct soap *soap, const char *address, char *filename, const char *destpath, const char *modestr);
 
 void boxcmd_set_(struct boxCmd *cmd, const char *id, int sequence, int pseq, 
 	       unsigned long trigger_time, int param_cnt, ...)
@@ -127,7 +128,7 @@ void boxcmd_set(struct boxCmd *boxcmd, struct cmddb_cmd *dbcmd){
 }
 
 
-int boxcmd_sent_status(struct rpclient *client_obj, struct soap *soap, char *address, int cid, int status, 
+int boxcmd_sent_status(struct rpclient *client_obj, struct soap *soap, const char *address, int cid, int status, 
 		       struct timeval *timestamp, const char* retstr, struct cmddb_cmd *dbcmd)
 {
     int err;
@@ -137,7 +138,7 @@ int boxcmd_sent_status(struct rpclient *client_obj, struct soap *soap, char *add
     struct boxInfo *boxinfo = &update.boxInf;
     struct boxCmd *boxcmd = &update.cmd;
 
-    fprintf(stderr,"cmdUpdate (cid %d)\n", cid);
+    syslog(LOG_DEBUG,"cmdUpdate (cid %d)\n", cid);
 
     rp_boxinfo_set(client_obj, boxinfo);
     boxcmd_set(boxcmd, dbcmd);
@@ -161,31 +162,32 @@ int boxcmd_sent_status(struct rpclient *client_obj, struct soap *soap, char *add
 
     struct rpclient_soap *rpsoap;
     rpsoap = client_obj->rpsoap;
-    soap->userid = rpsoap->username;
-    soap->passwd = rpsoap->password;
+    int retries = 0;
+    retval = -1;
+    http_da_restore(soap, rpsoap->dainfo);
 
-    if((err = soap_call_liabdatalogger__cmdUpdate(soap, address, NULL, &update, &retval))== SOAP_OK){
-	fprintf(stderr,"cmdUpdate success (returned %d) for cid %d\n", retval, cid);
-	if(retval > 0 && cid < 0)
-	    cmd_cid_change(cid, retval); 
-        retval = 0;
-    } else {
-        soap_print_fault(soap, stderr);
-        fprintf(stderr,"cmdUpdate fault\n");
-	retval = -1;
-    }
+    do{
+	err = soap_call_liabdatalogger__cmdUpdate(soap, address, NULL, &update, &retval);
+	if(err==SOAP_OK){
+	    syslog(LOG_DEBUG,"cmdUpdate success (returned %d) for cid %d\n", retval, cid);
+	    if(retval > 0 && cid < 0)
+		cmd_cid_change(cid, retval); 
+	    retval = 0;
+	    break;
+	}
+    }while(rpclient_soap_hndlerr(rpsoap,soap, rpsoap->dainfo, retries++, __FUNCTION__));
 
     return retval;
 }
 
 
-void boxcmd_print(struct boxCmd *cmd) 
+void boxcmd_print(int priority, struct boxCmd *cmd) 
  { 
      int n; 
 
-     printf("cmd %d \"%s\"\n", cmd->sequence, cmd->name); 
+     syslog(priority, "cmd %d \"%s\"\n", cmd->sequence, cmd->name); 
      for(n = 0; n <  cmd->paramsCnt ; n++){ 
- 	printf("   param %d \"%s\"\n", n, cmd->params[n]); 
+	 syslog(priority, "   param %d \"%s\"\n", n, cmd->params[n]); 
      } 
  } 
 

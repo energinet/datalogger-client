@@ -11,8 +11,6 @@ JFFCONFDIR="/jffs2"
 check_process_run()	# Check if a process of the name Arg_1 is running
 #===================================================================
 # Arg_1 = process name
-# return 1 if process is running
-# return 0 if process is not running
 {
     INSPECT=$1
 
@@ -70,8 +68,6 @@ watchdog_stop_wait()  # Stop the wait interval for the watchdog
     rm $WDTWAITFILE
 }
 
-
-
 #===================================================================
 #===================================================================
 # Update script
@@ -95,9 +91,8 @@ cp "$UPDATEDIR"/"$FILENAME" "$ETCDIR"/"$FILENAME"
 $PROGNAME 
 
 sleep 10
-ps aux
 
-#check if program has is running
+#check if program is running
 if [ `check_process_run $PROGNAME` == "not_running" ] ; then 
     # if not revert
     cp "$JFFCONFDIR"/"$FILENAME" "$ETCDIR"/"$FILENAME"
@@ -105,7 +100,7 @@ if [ `check_process_run $PROGNAME` == "not_running" ] ; then
     watchdog_stop_wait
     exit 1
 fi
-    
+ 
 cp "$UPDATEDIR"/"$FILENAME" "$JFFCONFDIR"/"$FILENAME"
 
 watchdog_stop_wait

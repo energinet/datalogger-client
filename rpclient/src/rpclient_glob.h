@@ -22,6 +22,10 @@
 #define PRINT_ERR(str,arg...) fprintf(stderr,"ERR:%s: "str"\n",__FUNCTION__, ## arg)
 #define PRINT_DBG(cond, str,arg...) {if(cond){fprintf(stderr,"%s: "str"\n",__FUNCTION__, ## arg);}}
 
+#define DEFAULT_USERNAME "rembox"
+#define DEFAULT_PASSWORD "skov9240"
+#define DEFAULT_REALM    "remboxdb"
+
 #define DEFAULT_PIDFILE   "/var/run/rpclient.pid"
 #define AEEVAR_LOCALID  "localid"
 

@@ -23,20 +23,28 @@
 #include "rpclient.h"
 
 #define DEFAULT_DB_FILE "/jffs2/bigdb.sql"
-
+enum iftypes {IF_IP, IF_NETMASK, IF_BROADCAST, IF_GATEWAY, IF_MAC};
 
 int rp_boxinfo_set(struct rpclient *client_obj,struct boxInfo *boxinfo);
-int cmd_run(struct rpclient *client_obj, struct soap *soap, char *address, time_t time);
+int cmd_run(struct rpclient *client_obj, struct soap *soap, const char *address, time_t time);
 
 char *platform_user_get(void);
-int send_metadata(struct rpclient *client_obj, struct soap *soap,  char *address, struct logdb *db  );
-int send_measurments(struct rpclient *client_obj,struct soap *soap,  char *address, struct logdb *db  );
+int send_metadata(struct rpclient *client_obj, struct soap *soap,  const char *address, struct logdb *db  );
+int send_measurments(struct rpclient *client_obj,struct soap *soap, const char *address, struct logdb *db  );
+
+int rpclient_db_localid(struct rpclient *client_obj,struct soap *soap,  const char *address,  const char *localid, int dopair, struct rettext *rettxt );
 
 
-int file_set(struct rpclient *client_obj, struct soap *soap, char *address,  
+int file_set(struct rpclient *client_obj, struct soap *soap, const char *address,  
 			 char *serverfile,char *filepath);
 
-int file_get(struct rpclient *client_obj, struct soap *soap, char *address, char *filename, const char *destpath, const char *modestr);
+int file_get(struct rpclient *client_obj, struct soap *soap, const char *address, char *filename, const char *destpath, const char *modestr);
+
+
+const char *platform_get_name(void);
+void platform_set_name(const char*  name);
+
+int get_iface_info(int type, const char *ifname, char *result, int maxlen);
 
 
 #endif /* RPCLIENT_DB_H_ */

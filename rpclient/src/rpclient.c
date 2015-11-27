@@ -40,6 +40,7 @@
 #include "pidfile.h"
 #include <logdb.h>
 #include <aeeprom.h>
+#include <syslog.h>
 
 #include "rpclient_glob.h"
 
@@ -66,29 +67,28 @@ static char *helptext =
   "                                servername (mandatory)\n"
   "  -u, --username USER           Connect with username USER\n"
   "  -p, --password PASSWORD       Connect with password PASSWORD\n"
+  "  -r, --realm                   Connect with realm (default: remboxdb)\n"
+  "  -N, --name                    Reporting name\n"
   "  -f, --forground               Run in forground\n"
   "  -i, --interval                Set interval\n"
   "  -n, --numbertransf              Set number of transvers\n"
   "\n"
-  "LIAB ApS 2010-2011 <www.liab.dk>\n\n";
+  "LIAB ApS 2010-2013 <www.liab.dk>\n\n";
 
 static struct option long_options[] =
   {
-    {"help",		  no_argument,		    0, 'h'},
-    {"version", 	  no_argument,		    0, 'V'},
+    {"help",		  no_argument,	        0, 'h'},
+    {"version", 	  no_argument,	        0, 'V'},
     {"host",  		  required_argument,	0, 'H'},
     {"username",  	  required_argument,	0, 'u'},
     {"password",  	  required_argument,	0, 'p'},
-    {"forground",  	  no_argument,			0, 'f'},
+    {"realm",             required_argument,    0, 'r'}, 
+    {"name",      	  required_argument,	0, 'N'},
+    {"forground",  	  no_argument,		0, 'f'},
     {"interval",  	  required_argument,	0, 'i'},
     {"numbertransf",  required_argument,	0, 'n'},
     {0, 0, 0, 0}
   };
-
-/* #ifdef    WITH_OPENSSL */
-/* int CRYPTO_thread_setup(); */
-/* void CRYPTO_thread_cleanup(); */
-/* #endif /\* WITH_OPENSSL  */
 
 int run = 1;
 
@@ -108,55 +108,26 @@ struct cmd_list *cmd_list_create(struct boxCmd *cmd)
 }
 
 
-
-int sendBoxInfo(struct soap *soap,  char *address )
-{
-    struct boxInfo boxinfo;
-    struct hostReturn hostRet;
-    int err;
-    int i,n;
-     
-      boxinfo.type = "test";
-      boxinfo.name = "mac";
-      if((err = soap_call_liabdatalogger__sendBoxInfo(soap, address, NULL, &boxinfo, &hostRet))== SOAP_OK){
-          printf("# of cmds %d\n", hostRet.cmdCnt);
-          for(i = 0; i < hostRet.cmdCnt; i++){
-              struct boxCmd *cmd = hostRet.cmds + i;
-              printf("cmd %d (%d) \"%s\"\n", cmd->sequence, i , cmd->name);
-              for(n = 0; n <  cmd->paramsCnt ; n++){
-                  printf("param %d \"%s\"\n", n, cmd->params[n]);
-              }
-          }
-      } else {
-          soap_print_fault(soap, stderr);
-         fprintf(stderr,"boxInfo fault\n");
-         return -1;
-      }
-      
-      return 0;
-}
-
-
 int uploadData(struct rpclient *client_obj)
 {
     int retval = 0;
 
-    printf("send metadata....\n");
+    syslog(LOG_DEBUG, "send metadata...");
     retval = send_metadata(client_obj,client_obj->rpsoap->soap,  client_obj->rpsoap->address, client_obj->db );
     if(retval < 0){
-	printf("send metadata failed\n");
+	syslog(LOG_ERR, "send metadata failed");
 	return retval;
     }
     
-    printf("send measurments....\n");
+    syslog(LOG_DEBUG, "send measurments...");
     retval = send_measurments(client_obj,client_obj->rpsoap->soap, client_obj->rpsoap->address,client_obj->db );
     
     if(retval < 0){
-	 printf("send measurments failed\n");
+	syslog(LOG_ERR, "send measurments failed\n");
 	return retval;
     }
 
-    printf("done \n");
+    syslog(LOG_DEBUG, "done transmitting");
 
     return 0;
 
@@ -187,42 +158,66 @@ int socket_hndlr_localid_get(ASOCKET_FUNC_PARAM)
 }
 
 
-int socket_hndlr_localid_chk(ASOCKET_FUNC_PARAM)
-{
-    struct rpclient *client_obj = ( struct rpclient *)sk_con->appdata;
-    struct skcmd *tx_msg = asocket_cmd_create("LocalIdCheked");
-    struct soap *soap = client_obj->rpsoap->soap;
-    char *address =  client_obj->rpsoap->address;
-    struct rettext rettxt;
-    int err;
+/* int socket_hndlr_localid_chk(ASOCKET_FUNC_PARAM) */
+/* { */
+/*     struct rpclient *client_obj = ( struct rpclient *)sk_con->appdata; */
+/*     struct skcmd *tx_msg = asocket_cmd_create("LocalIdCheked"); */
+/*     struct soap *soap = client_obj->rpsoap->soap; */
+/*     const char *address =  client_obj->rpsoap->address; */
+/*     struct rettext rettxt; */
+/*     int err; */
     
-    struct boxInfo boxinfo;
-    rp_boxinfo_set(client_obj, &boxinfo);
+/*     struct boxInfo boxinfo; */
+/*     rp_boxinfo_set(client_obj, &boxinfo); */
+    
+/*     int retries = 0; */
+/*     retval = -1; */
+    
 
-    if((err = soap_call_liabdatalogger__pair(soap, address, NULL,&boxinfo,asocket_cmd_param_get(rx_msg, 0), 0 /*dopair*/, &rettxt))== SOAP_OK){
-	char buf[512];
-	sprintf(buf,"%d", rettxt.retval);
-	asocket_cmd_param_add(tx_msg, buf);
-	if(rettxt.retval==1)
-	    asocket_cmd_param_add(tx_msg, rettxt.text);
-	else
-	    asocket_cmd_param_add(tx_msg, "err");
+/*     do{ */
+/* 	err = soap_call_liabdatalogger__pair(soap, address, NULL,&boxinfo,asocket_cmd_param_get(rx_msg, 0), 0 /\*dopair*\/, &rettxt); */
+/* 	if(err=SOAP_OK){ */
+/* 	    char buf[512]; */
+/* 	    sprintf(buf,"%d", rettxt.retval); */
+/* 	    asocket_cmd_param_add(tx_msg, buf); */
+/* 	    if(rettxt.retval==1){ */
+/* 		asocket_cmd_param_add(tx_msg, rettxt.text); */
+/* 	    else */
+/* 		asocket_cmd_param_add(tx_msg, "err"); */
+/* 	    } */
+	    
+/* 	    fprintf(stderr, "socket_hndlr_localid_chk retval %d\n", rettxt.retval); */
+	    
+/* 	} */
+	
 
-	fprintf(stderr, "socket_hndlr_localid_chk retval %d\n", rettxt.retval);
-    } else {
-	soap_print_fault(soap, stderr);
-	fprintf(stderr,"boxInfo fault\n");
-	asocket_cmd_param_add(tx_msg, "-1");
-	return -1;
-    }
+/*     }while(rpclient_soap_hndlerr(rpsoap,soap, rpsoap->dainfo, retries++, __FUNCTION__)); */
+
+/*     /\* */
+/*     if((err = soap_call_liabdatalogger__pair(soap, address, NULL,&boxinfo,asocket_cmd_param_get(rx_msg, 0), 0 /\*dopair*\/, &rettxt))== SOAP_OK){ */
+/* 	char buf[512]; */
+/* 	sprintf(buf,"%d", rettxt.retval); */
+/* 	asocket_cmd_param_add(tx_msg, buf); */
+/* 	if(rettxt.retval==1) */
+/* 	    asocket_cmd_param_add(tx_msg, rettxt.text); */
+/* 	else */
+/* 	    asocket_cmd_param_add(tx_msg, "err"); */
+
+/* 	fprintf(stderr, "socket_hndlr_localid_chk retval %d\n", rettxt.retval); */
+/*     } else { */
+/* 	soap_print_fault(soap, stderr); */
+/* 	fprintf(stderr,"boxInfo fault\n"); */
+/* 	asocket_cmd_param_add(tx_msg, "-1"); */
+/* 	return -1; */
+/*     }*\/ */
 
 
-    asocket_con_snd(sk_con, tx_msg);
-    asocket_cmd_delete(tx_msg);
+/*     asocket_con_snd(sk_con, tx_msg); */
+/*     asocket_cmd_delete(tx_msg); */
 
-    return 0;
+/*     return 0; */
 
-}
+/* } */
 
 
 void rpclient_localiid_set(struct rpclient *client_obj, const char *localid)
@@ -235,48 +230,60 @@ void rpclient_localiid_set(struct rpclient *client_obj, const char *localid)
     client_obj->localid = strdup(localid);
 }
 
-int socket_hndlr_localid_set(ASOCKET_FUNC_PARAM)
+
+
+
+int socket_hndlr_localid_setchk(struct rpclient *client_obj, struct asocket_con* sk_con, struct skcmd* rx_msg, int dopair)
 {
-    struct rpclient *client_obj = ( struct rpclient *)sk_con->appdata;
-    struct skcmd *tx_msg = asocket_cmd_create("LocalIdSetted");
+
+    struct skcmd *tx_msg = NULL ;
     struct soap *soap = client_obj->rpsoap->soap;
-    char *address =  client_obj->rpsoap->address;
+    const char *address =  client_obj->rpsoap->address;
     struct rettext rettxt;
-    int err;
+    int retval;
     
-    struct boxInfo boxinfo;
+    if(dopair){
+	tx_msg = asocket_cmd_create("LocalIdSetted");
+    } else {
+	tx_msg = asocket_cmd_create("LocalIdCheked");
+    }
 
-    
+    retval = rpclient_db_localid(client_obj, soap,  address,asocket_cmd_param_get(rx_msg, 0), dopair, &rettxt );
 
-    rp_boxinfo_set(client_obj, &boxinfo);
-
-    if((err = soap_call_liabdatalogger__pair(soap, address, NULL,&boxinfo,asocket_cmd_param_get(rx_msg, 0), 1 /*dopair*/, &rettxt))== SOAP_OK){
+    if(retval < 0){
+	asocket_cmd_param_add(tx_msg, "-1");
+    } else {
 	char buf[512];
 	sprintf(buf,"%d", rettxt.retval);
 	asocket_cmd_param_add(tx_msg, buf);
 	if(rettxt.retval==1){
 	    asocket_cmd_param_add(tx_msg, rettxt.text);
-	    rpclient_localiid_set(client_obj, asocket_cmd_param_get(rx_msg, 0));
-	}else
-	    asocket_cmd_param_add(tx_msg, "err");
-
-	fprintf(stderr, "socket_hndlr_localid_chk retval %d\n", rettxt.retval);
-    } else {
-	soap_print_fault(soap, stderr);
-	fprintf(stderr,"boxInfo fault\n");
-	asocket_cmd_param_add(tx_msg, "-1");
-	return -1;
+	    if(dopair){
+		rpclient_localiid_set(client_obj, asocket_cmd_param_get(rx_msg, 0));
+	    }
+	} else {
+	    asocket_cmd_param_add(tx_msg, "err");	
+	}
     }
-
 
     asocket_con_snd(sk_con, tx_msg);
     asocket_cmd_delete(tx_msg);
 
-    return 0;
+    return retval;
 
 }
 
+int socket_hndlr_localid_set(ASOCKET_FUNC_PARAM)
+{
+    struct rpclient *client_obj = ( struct rpclient *)sk_con->appdata;
+    socket_hndlr_localid_setchk(client_obj, sk_con, rx_msg, 1);
+}
 
+int socket_hndlr_localid_chk(ASOCKET_FUNC_PARAM)
+{
+    struct rpclient *client_obj = ( struct rpclient *)sk_con->appdata;
+    socket_hndlr_localid_setchk(client_obj, sk_con, rx_msg, 0);
+}
 
 
 struct socket_cmd socket_cmd_list[] = {
@@ -288,11 +295,8 @@ struct socket_cmd socket_cmd_list[] = {
     { NULL,   NULL }
 };
 
-
-
 int rpclient_socket_start(struct socket_data *param, struct rpclient *client_obj)
 {
-
     param->appdata = (void*)client_obj;
     param->skaddr = asocket_addr_create_in(NULL, 4568);
     param->cmds = socket_cmd_list;
@@ -379,14 +383,20 @@ int main(int argc, char *argv[])
   memset(&rpsoap, 0, sizeof(rpsoap));
   memset(&sparam, 0,  sizeof(sparam));
 
+  rpsoap.authrealm = DEFAULT_REALM;
+
   client_obj.rpsoap = &rpsoap;
   client_obj.sparam = &sparam;
   client_obj.interval = 200; 
   client_obj.loop = -1;
   client_obj.db  = NULL;
   client_obj.run = 1;
+
+  openlog("rpclient", LOG_PID|LOG_PERROR, LOG_DAEMON);
+  setlogmask(LOG_UPTO(LOG_INFO));
+	
   
-  while ( (optc = getopt_long (argc, argv, "hH:u:p:tvs:fi:n:d::", long_options, &option_index)) != EOF ) {
+  while ( (optc = getopt_long (argc, argv, "hH:u:p:vs:fi:t::N:n:d::", long_options, &option_index)) != EOF ) {
     switch (optc) {
       case 0:
         /* If this option set a flag, do nothing else now. */
@@ -401,14 +411,20 @@ int main(int argc, char *argv[])
         printf("%s", helptext);
         exit(EXIT_SUCCESS);
       case 'H':
-        rpsoap.address = strndup(optarg, MAXLEN);
+        rpsoap.address = optarg;
         break;
       case 'u':
-        rpsoap.username = strndup(optarg, MAXLEN);
+        rpsoap.username = optarg;
         break;
       case 'p':
-        rpsoap.password = strndup(optarg, MAXLEN);
+        rpsoap.password = optarg;
         break;
+      case 'r':
+	rpsoap.authrealm = optarg;
+	break;
+      case 'N':
+	platform_set_name(optarg);
+	break;
       case 'f':
         forground = 1;
         fprintf(stderr, "run in forground\n");
@@ -419,11 +435,34 @@ int main(int argc, char *argv[])
       case 'n':
         client_obj.loop = atoi(optarg);
         break;
+      case 't':{
+	const char *ifname;
+	char result[64];
+	if(optarg)
+	    ifname = optarg;
+	else {
+	    ifname = "eth0";
+	}
+	fprintf(stdout, "ifname:      \t%s\n", ifname);
+	get_iface_info(IF_IP, ifname, result, sizeof(result));
+	fprintf(stdout, "ip:      \t%s\n", result);
+	get_iface_info(IF_NETMASK, ifname, result, sizeof(result));
+	fprintf(stdout, "mask:     \t%s\n", result);
+	get_iface_info(IF_BROADCAST, ifname, result, sizeof(result));
+	fprintf(stdout, "broadcast:\t%s\n", result);
+	get_iface_info(IF_MAC, ifname, result, sizeof(result));
+	fprintf(stdout, "mac:      \t%s\n", result);
+	get_iface_info(IF_GATEWAY, ifname, result, sizeof(result));
+	fprintf(stdout, "gateway:  \t%s\n", result);
+	fprintf(stdout, "name:     \t%s\n", platform_get_name());
+	exit(0);
+	   }
       case 'd':
 	if(optarg)
 	    dbglev = atoi(optarg);
 	else
 	    dbglev = 1;
+	setlogmask(LOG_UPTO(LOG_DEBUG));
 	break;
       case '?':
           /* getopt_long already printed an error message. */
@@ -433,7 +472,7 @@ int main(int argc, char *argv[])
     }
   }
 
-  PRINT_DBG(dbglev, "INFO: debug level: %x", dbglev);
+  syslog(LOG_INFO, "INFO: debug level: %x", dbglev);
 
   rpsoap.dbglev = dbglev;
   client_obj.dbglev = dbglev;
@@ -441,8 +480,6 @@ int main(int argc, char *argv[])
   if(!client_obj.type){
       client_obj.type = strdup("test");
   }
-
-
 
   if(!client_obj.name)
       client_obj.name = platform_user_get();
@@ -455,60 +492,52 @@ int main(int argc, char *argv[])
       client_obj.rpversion = strdup(BUILD" "COMPILE_TIME );
   }
   
-  PRINT_DBG(dbglev, "INFO: box type :   %s", client_obj.type);  
-  PRINT_DBG(dbglev, "INFO: box name :   %s", client_obj.name);  
-  PRINT_DBG(dbglev, "INFO: localid  :   %s", client_obj.localid);  
-  PRINT_DBG(dbglev, "INFO: rpversion:   %s", client_obj.rpversion);  
-  
-
-  
+  syslog(LOG_INFO, "INFO: box type :   %s", client_obj.type);  
+  syslog(LOG_INFO, "INFO: box name :   %s", client_obj.name);  
+  syslog(LOG_INFO, "INFO: localid  :   %s", client_obj.localid);  
+  syslog(LOG_INFO, "INFO: rpversion:   %s", client_obj.rpversion);  
+    
   if (rpsoap.address == NULL ) {
-      PRINT_ERR("Error. You must specify an address.");
-      PRINT_ERR("%s", helptext);
+      fprintf(stderr, "Error. You must specify an address.\n");
+      fprintf(stderr, "%s\n", helptext);
       exit(EXIT_FAILURE);
   }
 
-  PRINT_DBG(dbglev, "INFO: address  :   %s", rpsoap.address);  
+  syslog(LOG_INFO, "INFO: address  :   %s", rpsoap.address);  
   
   if ( argc < 2 ) {
-      PRINT_ERR("Error. You must specify at least one option.");
-      PRINT_ERR( "%s",  helptext);
+      fprintf(stderr, "Error. You must specify at least one option.\n");
+      fprintf(stderr, "%s\n",  helptext);
       exit(EXIT_FAILURE);
   }
 
   if(!forground){
-      fprintf(stderr, "Deamonizing\n");
+      syslog(LOG_INFO, "Deamonizing");
       if(daemon(0,dbglev))
-          fprintf(stderr, "Daemon failed: %s\n", strerror(errno));
+          syslog(LOG_ERR, "Daemon failed: %s", strerror(errno));
 
   }
 
-  PRINT_DBG(dbglev, "Running in forgeound");  
+  syslog(LOG_NOTICE, "Running in forgeound");  
   
   pidfile = pidfile_create(DEFAULT_PIDFILE, PMODE_EXIT, dbglev);
   assert(pidfile);
   
-  
   client_obj.db = logdb_open(DEFAULT_DB_FILE, 15000, 0);
 
   if(!client_obj.db){
-      PRINT_ERR("Coild not open log database\n");
+      syslog(LOG_ERR, "Coild not open log database\n");
       goto out;
   }
 
   if((retval=rpclient_soap_init(&rpsoap))<0){
-      PRINT_ERR("rpclient_soap_init returned fault\n");
+      syslog(LOG_ERR, "rpclient_soap_init returned fault\n");
       goto out_db;
   }
 
 
-
-
-
-
-
   if((retval = rpclient_cmd_init(NULL, dbglev))<0){
-      PRINT_ERR("Error opening boxvcmd");
+      syslog(LOG_ERR,"Error opening boxvcmd");
       goto out_soap;
   }
   
@@ -517,7 +546,6 @@ int main(int argc, char *argv[])
   retval = theloop(&client_obj);
 
   rpclient_cmd_deinit();
-//boxvcmd_close();
   
   asckt_srv_close(&sparam);
 
@@ -532,7 +560,11 @@ int main(int argc, char *argv[])
   out:
   if(pidfile)
 	  pidfile_delete(pidfile);
+
+  if(retval < 0)
+      exit(EXIT_FAILURE);
+  else 
+      exit(EXIT_SUCCESS);
   
-  return retval;
 }
   

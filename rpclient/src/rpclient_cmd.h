@@ -38,7 +38,7 @@
 struct cmdhnd_data{
     struct rpclient *client_obj;
     struct soap *soap;
-    char *address;
+    const char *address;
     int reboot;
 };
 
@@ -51,7 +51,7 @@ struct cmdhnd_data{
 /* }; */
 
 
-int boxcmd_sent_status(struct rpclient *client_obj, struct soap *soap, char *address, int cid, int status, 
+int boxcmd_sent_status(struct rpclient *client_obj, struct soap *soap, const char *address, int cid, int status, 
 		       struct timeval *timestamp, const char* retstr, struct cmddb_cmd *dbcmd);
 
 //int boxcmd_run(struct boxvcmd *cmd, struct cmdhnd_data *data, char** retval);
@@ -59,8 +59,7 @@ int boxcmd_sent_status(struct rpclient *client_obj, struct soap *soap, char *add
 //struct cmd_handler *boxcmd_get_hndl(const char *name);
 //unsigned long boxcmd_get_flags(const char *name);
 
-
-void boxcmd_print(struct boxCmd *cmd);
+void boxcmd_print(int priority, struct boxCmd *cmd);
 
 int rpclient_cmd_init(const char *db_path, int debug_level);
 
