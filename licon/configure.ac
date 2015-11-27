@@ -133,6 +133,7 @@ AC_SUBST(htmldir)
 AC_DEFINE_UNQUOTED(HTMLDIR,"${htmldir}",[Directory where html files reside])
 AC_MSG_RESULT(${htmldir})
 
+
 pppdir=/etc/ppp
 AC_SUBST(pppdir)
 peersdir=/etc/ppp/peers
