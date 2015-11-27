@@ -1,11 +1,19 @@
+
+if SDVP
+EXTRAFILE = sdvp/logosdvp.png sdvp/sdvpzen.css
+else
+EXTRAFILE = liab/logoliab.png liab/liabzen.css
+endif
+
+
+
 html_DATA = \
     page.begin.html.in \
     page.end.html.in \
     defaults.css \
-    liabzen.css \
     index.html \
-    logo.png \
     system.css \
     tableheader.js \
     flashchart.swf \
-    styles.css
+    styles.css \
+	$(EXTRAFILE)

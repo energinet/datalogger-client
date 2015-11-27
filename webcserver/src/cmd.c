@@ -34,47 +34,28 @@
 #include <asocket_client.h>
 #include <qDecoder.h>
 #include <errno.h>
-#define DEFAULT_PORT 6523
-
+#include <cmddb.h>
 #include "siteutil.h"
 
-int graf_print_graf(const char *flashvars)
-{
-    printf("<embed width=\"750px\" height=\"500px\" src=\"../flashchart.swf\""
-	   " pluginspage=\"http://www.adobe.com/go/getflashplayer\" "
-	   " flashvars=\"%s\">"
-	   " </embed>\n", flashvars);
-    return 0;
-}
-
-
-int graf_print_all(void)
-{
-#ifndef SDVP
-    return graf_print_graf("");
-#else
-    graf_print_graf("show=unit:W,kWh&unit=W&unitbox=W,kWh");
-    graf_print_graf("show=unit:°C");
-    graf_print_graf("show=unit:l%2Fmin,l&unitbox=l%2Fmin,l");
-
-	return 0;
-#endif
-}
 
 int main(int argc, char *argv[])
 {
-
   struct sitereq site;
 
-  openlog("grafer.cgi", LOG_PID, LOG_DAEMON);
+  openlog("cmd.cgi", LOG_PID, LOG_DAEMON);
 
-  siteutil_init(&site, "Kurver", "graf");
+  siteutil_init(&site, "Kommandoer", "cmd");
   
   syslog(LOG_NOTICE, "Reading configuration file...");
 
-  siteutil_top(&site, 0);
+  struct siteadd *header = 
+  siteadd_create("<script type=\"text/javascript\" language=\"javascript\" src=\"/boxsitehelper/boxsitehelper.nocache.js\"></script>");
 
-  graf_print_all();
+  siteutil_top(&site, header);
+
+  siteadd_delete(header);
+
+  fprintf(stdout, "<div id=\"siteHelper\"></div>");
 
   siteutil_bot(&site);
 
@@ -82,6 +63,5 @@ int main(int argc, char *argv[])
 
   syslog(LOG_NOTICE, "Done");
   return EXIT_SUCCESS;
-
-
 }
+

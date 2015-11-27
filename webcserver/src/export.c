@@ -34,54 +34,33 @@
 #include <asocket_client.h>
 #include <qDecoder.h>
 #include <errno.h>
-#define DEFAULT_PORT 6523
-
 #include "siteutil.h"
 
-int graf_print_graf(const char *flashvars)
-{
-    printf("<embed width=\"750px\" height=\"500px\" src=\"../flashchart.swf\""
-	   " pluginspage=\"http://www.adobe.com/go/getflashplayer\" "
-	   " flashvars=\"%s\">"
-	   " </embed>\n", flashvars);
-    return 0;
-}
 
 
-int graf_print_all(void)
-{
-#ifndef SDVP
-    return graf_print_graf("");
-#else
-    graf_print_graf("show=unit:W,kWh&unit=W&unitbox=W,kWh");
-    graf_print_graf("show=unit:°C");
-    graf_print_graf("show=unit:l%2Fmin,l&unitbox=l%2Fmin,l");
-
-	return 0;
-#endif
-}
 
 int main(int argc, char *argv[])
 {
 
-  struct sitereq site;
+    struct sitereq site;
+	
+    openlog("export.cgi", LOG_PID, LOG_DAEMON/*|LOG_PERROR*/);
 
-  openlog("grafer.cgi", LOG_PID, LOG_DAEMON);
+	syslog(LOG_ERR, "Done");
 
-  siteutil_init(&site, "Kurver", "graf");
-  
-  syslog(LOG_NOTICE, "Reading configuration file...");
+    siteutil_init(&site, "Export", "export");
+    
+    syslog(LOG_DEBUG, "Reading configuration file...");
+    
+    siteutil_top(&site, 0);
 
-  siteutil_top(&site, 0);
+	printf("<a href=\"/cgi-bin/dbfile.cgi\">Download file</a>");
 
-  graf_print_all();
+    siteutil_bot(&site);
 
-  siteutil_bot(&site);
+    siteutil_deinit(&site);
 
-  siteutil_deinit(&site);
-
-  syslog(LOG_NOTICE, "Done");
-  return EXIT_SUCCESS;
-
+    syslog(LOG_DEBUG, "Done");
+    return EXIT_SUCCESS;
 
 }

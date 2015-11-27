@@ -143,8 +143,8 @@ void calib_step_print(int bold, const char *text)
 void calib_site(struct sitereq *site)
 {
 
-    Q_ENTRY *req = site->req;
-    char *stage = (char *)req->getStr(req, "stage", false);
+//    Q_ENTRY *req = site->req;
+//    char *stage = (char *)req->getStr(req, "stage", false);
     char buffer[256];
     int state = calib_status(buffer);
 
@@ -175,7 +175,12 @@ int main(int argc, char *argv[])
   
   syslog(LOG_NOTICE, "Reading configuration file...");
 
-  siteutil_top(&site, 3);
+  struct siteadd *header = siteadd_create("<META HTTP-EQUIV=\"refresh\" CONTENT=\"3\" />");
+	
+  siteutil_top(&site, header);
+
+  siteadd_delete(header);
+
 
   calib_site(&site);
 

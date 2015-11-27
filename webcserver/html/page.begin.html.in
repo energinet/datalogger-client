@@ -3,7 +3,7 @@
     ${PAGE_EXTHDR}
     <title>${PAGE_TITLE}</title>
     <link type="text/css" rel="stylesheet" media="all" href="../defaults.css">
-    <link type="text/css" rel="stylesheet" media="all" href="../liabzen.css">
+    ${PAGE_STYLESHEET}
     <link type="text/css" rel="stylesheet" media="all" href="../system.css">
     <script type="text/javascript" src="../tableheader.js"></script>
 
@@ -17,7 +17,7 @@
 	
               <div id="logo-title">
 
-                      <div id="logo"><a href="http://styrdinvarmepumpe.dk/" title="Hjem" rel="home">
+                      <div id="logo"><a href="http://dacs.liab.dk/" title="Hjem" rel="home">
 <!--<img src="../logo.png" alt="Hjem" id="logo-image">-->
                        ${PAGE_TOPIMG}
 		      </a></div>

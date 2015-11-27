@@ -76,6 +76,13 @@ AC_CHECK_HEADER(qDecoder.h,, AC_MSG_ERROR(qDecoder.h not found try using --with-
 AC_CHECK_LIB(qDecoder, qEntry,,AC_MSG_ERROR(qDecoder not found try using --with-libraries))
 
 
+AC_CHECK_HEADER(logdb.h,, AC_MSG_ERROR(logdb.h not found try using --with-includes ))
+AC_CHECK_LIB(logdb, logdb_open,,AC_MSG_ERROR(logdb not found try using --with-libraries))
+
+AC_CHECK_HEADER(cmddb.h,, AC_MSG_ERROR(cmddb.h not found try using --with-includes ))
+AC_CHECK_LIB(cmddb, cmddb_insert,,AC_MSG_ERROR(cmddb not found try using --with-libraries))
+
+
 
 #AC_CHECK_HEADER(stdsoap2.h,, AC_MSG_ERROR(stdsoap2.h not found try using --with-includes ))
 #AC_CHECK_LIB(gsoap, soap_getheader,,AC_MSG_ERROR(gsoap not found try using --with-libraries))
@@ -153,6 +160,20 @@ AC_MSG_RESULT(${dbdir})
 
 AC_CHECK_HEADER(asocket.h,, AC_MSG_ERROR(asocket.h not found try using --with-includes ))
 AC_CHECK_LIB(asocket, asocket_cmd_create,,AC_MSG_ERROR(pthread not found try using --with-libraries))
+
+AC_ARG_ENABLE([sdvp],									   
+     [  --enable-sdvp   Turn on styrdinvarmepumpe version],				   
+     [case "${enableval}" in
+       yes) sdvp=true ;;
+       no)  sdvp=false ;;
+       *) AC_MSG_ERROR([bad value ${enableval} for --enable-sdvp]) ;;
+     esac],[debug=false])
+AM_CONDITIONAL([SDVP], [test x$sdvp = xtrue])
+
+if [SDVP]
+then
+   AC_DEFINE_UNQUOTED(SDVP, "${sdvp}",[Set to build the SDVP version])
+fi
 
 
 AC_CONFIG_FILES([Makefile src/Makefile html/Makefile ])

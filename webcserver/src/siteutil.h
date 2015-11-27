@@ -20,6 +20,11 @@
 #define SITEUTIL_H_
 #include <qDecoder.h>
 
+struct siteadd{
+	char *str;
+	struct siteadd *next;
+};
+
 struct sitereq{
     Q_ENTRY *req;
     char *boxid;
@@ -37,11 +42,19 @@ struct sitemenu_item{
 };
 
 
+struct siteadd *siteadd_create(const char *str);
+
+struct siteadd *siteadd_list_add(struct siteadd *list,struct siteadd *new);
+
+void siteadd_delete(struct siteadd *sadd);
+
 int siteutil_init(struct sitereq *site, char *subtitle, char *sname);
+
+int siteutil_init_notpe(struct sitereq *site, char *subtitle, char *sname);
 
 void siteutil_deinit(struct sitereq *site);
 
-void siteutil_top(struct sitereq *site,  int refresh);
+void siteutil_top(struct sitereq *site, struct siteadd *header );
 
 void siteutil_bot(struct sitereq *site);
 

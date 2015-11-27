@@ -146,7 +146,11 @@ int main(int argc, char *argv[])
     
     syslog(LOG_DEBUG, "Reading configuration file...");
     
-    siteutil_top(&site, 3);
+	struct siteadd *header = siteadd_create("<META HTTP-EQUIV=\"refresh\" CONTENT=\"3\" />");
+
+    siteutil_top(&site, header);
+
+	siteadd_delete(header);
 
     live_client_print_line(&site);
 
