@@ -1,87 +1,24 @@
-Byggeguide
+= How to build the data logger client =
 
-For at bygge den open-source datalogger kræves der:
+Prerequisites:
+A linux machine with a gcc cross compiler for ARM
+git to pull the source from source (optional, it can be downloaded as an archive)
+gsoap 2.7.16 is needed on the build machine, the directory "patches" includes a patch needed when building with recent versions of gcc and glibc
+The system's PATH variable must include a path to the cross compiler binaries named "arm-unknown-linux-gnu-*"
 
-    En standard Linux 32bit maskine(Ubuntu 10.04 LTS i386 eller nyere)
-    En gcc compiler (Til en LIABSG benyttes en krydscompiler til ARM)
-    Programmet Git - Fast Version Control System
+Build:
+Run the following commands to initialise some git submodules which are needed for the build:
+- git submodule init
+- git submodule update
 
-Opsætning af krydscompiler
+The directory contains a file called "components" listing the components (modules) to be built and included in the resulting tarball. This file should be edited to reflect the wanted setup. At LIAB the components file is a symbolic link to different setups, and this approach can also be used if needed.
 
-For at kunne bruge krydscompileren skal den udpakkes det kan evt. være til /opt biblioteket.
+To build the data logger client, first check the Makefile for the variables: "ARMLIBDIR" and "ARMINCLUDEDIR" which should point to the cross compilation libs and includes respectively.
+When set up correctly, the project should build by issuing a "make" command.
 
-user@host:~$ sudo tar xvf crosstool.tar.gz -C /opt/
-[sudo] password for skn: <Password tastes>
-user@host:~$ echo "PATH=$PATH:/opt/crosstool/gcc-4.0.2-glibc-2.3.6/arm-unknown-linux-gnu/bin/" >> .bashrc
+Several make targets exist, but "make tar" will produce a tarball called "contdaem.tar.gz" for download to the jffs2 share on the LIABSG computer.
 
-Nu er der hul igennem til krydscompileren, det kan testes ved at skrive:
+Remember to add a contdaem.conf to the /etc/ folder of the LIABSG, an example configuration can be found in xmlfiles/contdaem_example.conf
 
-user@host:~$ arm- <TAB> <TAB>
-arm-unknown-linux-gnu-addr2line arm-unknown-linux-gnu-gprof
-arm-unknown-linux-gnu-arm arm-unknown-linux-gnu-ld
-arm-unknown-linux-gnu-as  arm-unknown-linux-gnu-nm
-arm-unknown-linux-gnu-c++ arm-unknown-linux-gnu-objcopy
-arm-unknown-linux-gnu-c++filt arm-unknown-linux-gnu-objdump
-arm-unknown-linux-gnu-cpp arm-unknown-linux-gnu-ranlib
-arm-unknown-linux-gnu-g++ arm-unknown-linux-gnu-readelf
-arm-unknown-linux-gnu-gcc arm-unknown-linux-gnu-size
-arm-unknown-linux-gnu-gcc-4.0.2 arm-unknown-linux-gnu-strings
-arm-unknown-linux-gnu-gccbug  arm-unknown-linux-gnu-strip
-arm-unknown-linux-gnu-gcov
-
-Hentning af kildekoden fra github
-
-Til at hente kildekoden fra github skal programmet Git bruges.
-
-user@host:~$ git clone git://github.com/energinet/datalogger-client.git
-user@host:~$ cd datalogger-client
-user@host:~/datalogger-client$ ls
-aeeprom  cmddb     doxdoc      logdb     socketmod    xmlparser
-asocket  contdaem  db-module  en_modules  Makefile  templatemod
-
-Kildekoden er hentet og computeren konfigueret...
-Bygning af kildekode
-
-Sådan som bygge systemet er lavet kan man bygge det hele på engang
-
-user@host:~/datalogger-client$ make <TAB> <TAB>
-aeeprom-clean                   expat-2.0.1.tar.gz
-aeeprom-distclean               expat-clean
-aeeprom-mk                      expat-distclean
-all                             expat-mk
-asocket-clean                   logdb-clean
-asocket-distclean               logdb-distclean
-asocket-mk                      logdb-mk
-clean                           Makefile
-cmddb-clean                     socketmod-clean
-cmddb-distclean                 socketmod-distclean
-cmddb-mk                        socketmod-mk
-contdaem-clean                  sqlite
-contdaem-distclean              sqlite-autoconf-3070603.tar.gz
-contdaem-mk                     sqlite-clean
-db-local-clean                  sqlite-distclean
-db-local-distclean              sqlite-mk
-db-local-mk                     subapps
-db-module-clean                 sublibs
-db-module-distclean             tar
-db-module-mk                    templatemod-clean
-deviceroot                      templatemod-distclean
-distclean                       templatemod-mk
-en_modules-clean                xmlparser-clean
-en_modules-distclean            xmlparser-distclean
-en_modules-mk                   xmlparser-mk
-expat
-
-Her kan der så ses en oversigt over de moduler der kan bygges. For at bygge hele systemet skrives der:
-
-user@host:~/datalogger-client$ make all
-
-Når make processen er udført vil der blive genereret en tar bold kaldet:
-
-contdaem.tar.gz
-
-den tarbold skal pakkes ud i roden på LIABSG'en
-
-root@liab# tar xvf contdaem.tar.gz -C /
-
-For at contdaem kan startes skal der lægges en contdaem.conf ind i /etc biblioteket, der kan findes et eksempel på sådan en i den hentede kildekode. (contdaem/xmlfiles/contdaem_example.conf)
+Getting help:
+If in need of a cross compiler, or any other help, please contact info@liab.dk
