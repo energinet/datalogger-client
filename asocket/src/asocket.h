@@ -86,6 +86,7 @@ struct sockaddr *asocket_addr_create_un(const char *path);
 
 struct sockaddr *asocket_addr_create_in(const char *ip, int port);
 
+void asocket_addr_delete(struct sockaddr *addr);
 
 
 

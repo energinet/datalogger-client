@@ -35,31 +35,57 @@
 #include <netinet/tcp.h>
 
 
-struct asocket_con* asocket_clt_connect(struct sockaddr *skaddr){
+
+
+
+struct asocket_con* asocket_clt_connect(struct sockaddr *skaddr)
+{
+    int client_fd = asocket_clt_cnt_fd(skaddr,1);
+
+    if(client_fd < 0)
+	return NULL;
+
+    return asocket_con_create(client_fd, NULL , NULL , 0);;
+}
+
+
+
+int asocket_clt_cnt_fd(struct sockaddr *skaddr, int retcnt){
     
     int len;
     int retval;
     int client_fd;
+    int errors = 0;
 
-    /* open socket */
-    if((client_fd = socket(skaddr->sa_family, SOCK_STREAM, 0))<0){
-        fprintf(stderr, "server socket returned err: %s\n", strerror(errno));
-        return NULL;
+    while (errors < retcnt) {
+	/* open socket */
+	if ((client_fd = socket(skaddr->sa_family, SOCK_STREAM, 0)) < 0) {
+	    fprintf(stderr, "server socket returned err: %s\n", strerror(errno));
+	    errors++;
+	    sleep(1);
+	    continue;
+	}
+	
+	len = asocket_addr_len(skaddr);
+	
+	retval = connect(client_fd, skaddr, len);
+	
+	if (retval < 0) {
+	    close(client_fd);
+	    errors++;
+	    sleep(1);
+	    continue;
+	} else {
+	    break;
+	}
+	
     }
     
-    len = asocket_addr_len(skaddr);
-
-    retval = connect(client_fd, skaddr, len);
-
-    if(retval < 0){
-        fprintf(stderr, "connect error: %s (%d)\n",strerror(errno), errno);
-	fprintf(stderr, "closing socket\n");
-	close(client_fd);
-        return NULL;
-
+    if (errors >= retcnt){
+	fprintf(stderr, "connect error: %s (%d)\n", strerror(errno), errno);		
+	return -1;
     }
-
-
+    
     if(skaddr->sa_family == AF_INET){
         int val;
         val = 10; /* 10 sec before starting probes */
@@ -79,7 +105,7 @@ struct asocket_con* asocket_clt_connect(struct sockaddr *skaddr){
         // printf("TCP_KEEPINTVL ret %d\n", retval);
     }
 
-    return asocket_con_create(client_fd, NULL , NULL , 0);;
+    return client_fd;
 
 }
 

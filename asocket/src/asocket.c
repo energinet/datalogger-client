@@ -366,3 +366,9 @@ struct sockaddr *asocket_addr_create_in(const char *ip, int port)
     return (struct sockaddr *)skaddr;
     
 }
+
+
+void asocket_addr_delete(struct sockaddr *skaddr)
+{
+	free(skaddr);
+}

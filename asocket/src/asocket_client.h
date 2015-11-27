@@ -28,6 +28,9 @@
 /* }; */
 //struct asocket_con* sk_con;
 
+int asocket_clt_cnt_fd(struct sockaddr *skaddr, int retcnt);
+
+
 struct asocket_con* asocket_clt_connect(struct sockaddr *skaddr);
 
 /* int asckt_clt_trancive(struct asocket_client *client,  */
