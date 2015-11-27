@@ -61,15 +61,14 @@ int encontrol_simp_offhours(struct logdb *logdb, const char *varnane, time_t now
 	int eid = logdb_etype_get_eid(logdb, varnane); 
 	int count, off_count;
 	char sql[512];
-	int retval;
 	
 	sprintf(sql, "SELECT COUNT(*) FROM event_log WHERE eid=%d AND time > %ld", eid, now-(24*60*60));
 
-	retval = logdb_get_first_int(logdb, sql, 0, &count);
+	logdb_get_first_int(logdb, sql, 0, &count);
 
 	sprintf(sql, "SELECT SUM(value<%d) FROM event_log WHERE eid=%d AND time > %ld", 300/*min power*/, eid, now-(24*60*60));
 
-	retval = logdb_get_first_int(logdb, sql, 0, &off_count);
+	logdb_get_first_int(logdb, sql, 0, &off_count);
 
 
 
