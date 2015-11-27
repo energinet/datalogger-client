@@ -73,26 +73,30 @@ int main(int narg, char *argp[])
 	  }
      }
 
-     stack = xml_doc_parse_prep(30, 1024, debug_level);
+	 struct xml_doc  *doc = xml_doc_create(1024, debug_level);
+
+
+     stack = xml_stack_create(30, doc, debug_level);
 
      inbuf = malloc(chunk_size);
      outbuf = malloc(1024*1000);
 
      while( (size = fread(inbuf, 1, chunk_size,input))>0){
-	 fprintf(stderr, "read %d: %s\n", size, inbuf);
-	 retval = xml_doc_parse_step(stack, inbuf, size);
-	 fprintf(stderr, "read %d, ret %d\n", size, retval);
-	 if(retval <0)
-	     break;
+		 fprintf(stderr, "read %d: %s\n", size, inbuf);
+		 retval = xml_stack_parse_step(stack, inbuf, size);
+		 fprintf(stderr, "read %d, ret %d\n", size, retval);
+		 if(retval <0)
+			 break;
      }
      
      fprintf(stdout,"printing:\n");
      xml_doc_print(stack->doc, outbuf, 1024*1000);
-
+	 
      fprintf(stdout,"out:\n");
      fprintf(output, "%s\n", outbuf);
 
-     xml_doc_parse_free(stack);
+     xml_stack_delete(stack);
+     xml_doc_delete(doc);
 
      if(input != stdin)
 	 fclose(input);

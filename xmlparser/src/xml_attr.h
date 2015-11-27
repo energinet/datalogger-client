@@ -16,44 +16,32 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
  
-#ifndef XML_SERIALIZE_H_
-#define XML_SERIALIZE_H_
+#ifndef XML_ATTR_H_
+#define XML_ATTR_H_
 
-#include <stdlib.h>
-#include <expat.h>
+#include <stddef.h>
 
+struct xml_doc;
 
-
-#include "xml_attr.h"
-#include "xml_item.h"
-#include "xml_stack.h"
-#include "xml_doc.h"
-
-/* struct xml_attr { */
-/*     char *name; */
-/*     char *value; */
-/*     struct xml_attr* next; */
-/* }; */
+struct xml_attr {
+    char *name;
+    char *value;
+    struct xml_attr* next;
+};
 
 
-/* struct xml_doc; */
+struct xml_attr *xml_attr_create(struct xml_doc *doc, const char *name, const char *value );
 
+struct xml_attr *xml_attr_create_copy(struct xml_doc *doc, struct xml_attr *src );
 
-/* struct xml_item { */
-/*     char *name; */
-/* 	char *text; */
-/*     struct xml_attr *attrs; */
-/*     struct xml_item *childs; */
-/*     struct xml_item *next; */
-/* 	struct xml_doc *doc; */
-/* }; */
+void xml_attr_delete(struct xml_doc *doc, struct xml_attr *attr);
+
+int xml_attr_print(struct xml_attr *attr, char *buf, size_t maxsize );
 
 
 
-//struct xml_attr *xml_attr_create(struct xml_doc *doc, const char *name, const char *value );
-
-//int xml_attr_print(struct xml_attr *attr, char *buf, size_t maxsize );
+#endif /* XML_ATTR_H_ */
 
 
 
-#endif /* XML_SERIALIZE_H_ */
+

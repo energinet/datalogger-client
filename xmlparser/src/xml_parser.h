@@ -19,7 +19,6 @@
 #ifndef XML_PARSER_H_
 #define XML_PARSER_H_
 
-
 /**
  * @defgroup xml_parser XML parser library
  * @{
@@ -174,6 +173,20 @@ float get_attr_float(const char **attr, const char *id, float rep_value);
  * @return A pointer the string on success or NULL if ont found 
  */
 const char *get_attr_str_ptr(const char **attr, const char *id);
+
+/**
+ * Add a list to a list 
+ * @note listA will be realloced 
+ */
+struct xml_tag *xml_tag_add_lst(struct xml_tag *listA, struct xml_tag *listB);
+
+/**
+ * Add a tag to a list
+ */
+struct xml_tag *xml_tag_add(struct xml_tag *list, struct xml_tag *tag);
+
+
+void xml_tag_list_print(struct xml_tag *list);
 
 /**
  *@} @}

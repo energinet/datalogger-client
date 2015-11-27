@@ -153,7 +153,7 @@ float get_attr_float(const char **attr, const char *id, float rep_value)
 {
     int attr_no;
     float ret; 
-    char *format;
+//    char *format;
     
     attr_no = get_attr_no(attr, id);
     
@@ -169,7 +169,8 @@ float get_attr_float(const char **attr, const char *id, float rep_value)
 	return ret;	
     } 
 
-    printf("Attribute %s could not be red: %s (format %s)\n", id,attr[attr_no] , format);    
+    //printf("Attribute %s could not be red: %s (format %s)\n", id,attr[attr_no] , format);    
+    printf("Attribute %s could not be red: %s\n", id,attr[attr_no]);    
 
     return rep_value;    
 
@@ -201,7 +202,7 @@ struct stack_ele* add_stack_ele(struct stack_ele *parent)
         memset(new_ele, 0, sizeof(struct stack_ele));       
         new_ele->parent = parent;
     }
-    
+
     return new_ele;
 }
 
@@ -348,6 +349,18 @@ struct xml_tag *find_entry(AppData *ad, struct stack_ele* ele){
     return NULL;
 }
 
+void tag_print(struct xml_tag *tags)
+{
+    int i = 0;
+
+    if(!tags)
+	  return;
+
+    while(tags[i].el[0] != '\0'){  
+        struct xml_tag *entry = tags + i++;  
+        fprintf(stderr, "'%s'<-'%s'\n",entry->el, entry->parent);  
+    } 
+}
 
 /**
  * Handle the start of a xml node 
@@ -371,7 +384,8 @@ void tag_start(void *data, const char *el, const char **attr)
     ele->entry = find_entry(ad, ele);
 
     if(ele->entry == NULL){
-        printf("ERR in xml start: entry == NULL!!!\n");
+        printf("ERR in xml start: unknown tag '%s'\n", el);
+	tag_print(ad->tags);
         exit(128);
     }
 
@@ -471,7 +485,7 @@ int parse_xml_file(const char *filename, struct xml_tag *tags, void *appdata){
     int fd = 0;
     struct stat file_stat;
     char *file_map;
-    XML_Parser p = XML_ParserCreate(NULL);
+    XML_Parser p = XML_ParserCreate("UTF-8");
     int retval = 0;
     AppData *ad = newAppData(tags, appdata);
 
@@ -508,8 +522,11 @@ int parse_xml_file(const char *filename, struct xml_tag *tags, void *appdata){
         retval = -5;
     }
     
+	XML_ParserFree (p);
+
     munmap(file_map, file_stat.st_size);  
     close(fd);
+	free(ad);
     
     return retval;
     
@@ -517,6 +534,83 @@ int parse_xml_file(const char *filename, struct xml_tag *tags, void *appdata){
 
 
 }
+
+
+int xml_tag_length(struct xml_tag *list)
+{
+	int i = 0;
+
+	if(!list)
+		return 0;
+	
+	while(list[i].el[0] != '\0'){  	
+		i++;
+	}
+
+	return i;
+}
+
+
+
+struct xml_tag *xml_tag_add_lst_(struct xml_tag *listA, int lenA, struct xml_tag *listB, int lenB)
+{
+	int i;
+	struct xml_tag end =  { "" , "" , NULL, NULL, NULL }  ;
+
+	listA = realloc(listA, sizeof(struct xml_tag) * (lenA + lenB + 1 /* end */) );
+
+	for(i = 0; i < lenB ; i++){	
+		memcpy(listA+(i+lenA), listB+i, sizeof(struct xml_tag));
+	}
+	
+	memcpy(listA+(i+lenA), &end, sizeof(struct xml_tag));
+	
+	return listA;
+}
+
+
+
+struct xml_tag *xml_tag_add_lst(struct xml_tag *listA, struct xml_tag *listB)
+{
+	int lenA = xml_tag_length(listA);
+	int lenB = xml_tag_length(listB);
+
+	return xml_tag_add_lst_(listA, lenA, listB, lenB);
+
+	
+}
+
+
+
+struct xml_tag *xml_tag_add(struct xml_tag *list, struct xml_tag *tag)
+{
+	int len = xml_tag_length(list);
+
+	return xml_tag_add_lst_(list, len, tag, 1);
+	
+}
+
+
+
+void xml_tag_list_print(struct xml_tag *list)
+{
+	struct xml_tag *tag = list;
+	
+	fprintf(stderr, "XML tag list:\n");
+
+	if(!list){
+		fprintf(stderr, "EMPTY\n");
+		return;
+	}
+	
+	while(tag->el[0] != '\0'){  	
+		fprintf(stderr, "%s -> %s, %p, %p, %p\n", tag->el, tag->parent, tag->start, tag->char_hndl, tag->end);
+		tag++;
+	}
+
+	
+}
+
 
 
 /**
