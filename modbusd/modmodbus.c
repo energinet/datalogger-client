@@ -58,6 +58,7 @@ enum act_signaling{
     ACTSIG_TOLOW,   
 };
 
+
 struct modbus_reg{
     int mod_id;
     enum eRegTypes   type;
@@ -70,6 +71,8 @@ struct modb_read{
     struct modbus_reg r_chk;
     float last_read;
     enum act_signaling signaling;
+    int invert;
+    int interval_sig;
 };
 
 struct modb_write{
@@ -102,6 +105,7 @@ struct modbus_act{
 	struct modb_write write;
     };
     struct timeval last_update;
+    struct timeval last_read;
     int msg_cnt;
     int msg_err;
     int fault_state;
@@ -228,13 +232,13 @@ struct modbus_act * modbus_act_create(struct module_object* module, enum act_typ
 
      new->atype = atype;
 
- 
-     
      switch(atype){
        case ACTTYPE_READ:
 	 reg = &new->read.reg;
 	 new->read.signaling = module_get_signaling(get_attr_str_ptr(attr, "signaling"), ACTSIG_ALWAYS);
-	 def_interval = 30;
+	 new->read.invert = get_attr_int(attr, "invert", 0);
+	 new->read.interval_sig = get_attr_int(attr, "sig_interval", 0);
+	 def_interval = 1;
 	 break;
       case ACTTYPE_FREAD:
 	reg = &new->fread.reg_pulse;
@@ -456,7 +460,7 @@ int module_init(struct module_base *base, const char **attr)
 
     this->fault_state = FAULT_INIT;
 
-    this->tick = module_tick_create(base->tick_master,  get_attr_float(attr, "tick", 1), TICK_FLAG_SECALGN1|TICK_FLAG_SKIP);
+    this->tick = module_tick_create(base->tick_master,  base, get_attr_float(attr, "tick", 1), TICK_FLAG_SECALGN1|TICK_FLAG_SKIP);
 
 	this->trxdelay = get_attr_float(attr, "trxdelay", 0)*1000;
 
@@ -510,8 +514,15 @@ void module_event_send(struct module_object *module, struct event_type *event_ty
 
 
 
-int modbus_signaling_test(float read, float prev, enum act_signaling signaling)
+int modbus_act_signaling_test(struct modbus_act *act, float read,  struct timeval *time)
 {
+
+    float prev = act->read.last_read ;
+    enum act_signaling signaling = act->read.signaling;
+
+    if(act->read.interval_sig)
+	if((time->tv_sec) >= ( act->last_update.tv_sec + act->read.interval_sig ))
+	    return 1;
 
     switch(signaling){
       case ACTSIG_ALWAYS:
@@ -531,6 +542,8 @@ int modbus_signaling_test(float read, float prev, enum act_signaling signaling)
       default:
 	return 1;
     } 
+
+ 
 
 }
 
@@ -574,13 +587,21 @@ int modbus_act_read_level(struct module_object *module, struct modbus_act *act, 
 
     fvalue = module_calc_calc(act->calc, (float)value);
     
-    if( modbus_signaling_test(fvalue, act->read.last_read, act->read.signaling)){
+    if(act->read.invert){
+	if(fvalue > 0)
+	    fvalue = 0;
+	else
+	    fvalue = 1;
+    }
+
+    if( modbus_act_signaling_test(act, fvalue, time)){
 		module_send_event(module, act->event_type, time, 1, fvalue);
+		memcpy(&act->last_update, time, sizeof(struct timeval));
     }
 
     act->read.last_read = fvalue ;
-
-    memcpy(&act->last_update, time, sizeof(struct timeval));
+    memcpy(&act->last_read, time, sizeof(struct timeval));
+    
 
     return 0;       
 }
@@ -754,7 +775,7 @@ void* module_loop(void *parm)
 	    PRINT_ERR( "module tick error (%d)", retval);
 	    break;
 	} 
-	
+
 	if(retval>0){
 	    PRINT_MVB(base, "module tick rollover (%d)", retval);
 	} 

@@ -418,7 +418,7 @@ prvbMBPortSerialWrite( UCHAR * pucBuffer, USHORT usNBytes )
     return left == 0 ? TRUE : FALSE;
 }
 
-#define TMVAL 10
+#define TMVAL 100
 BOOL
 xMBPortSerialPoll(  )
 {

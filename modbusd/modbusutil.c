@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
 	  }break;
 	  case 's': //set register
 	    value = atoi_adv(optarg);
-	    write_cmd(mq_id,addr, MB_TYPE_COILS, reg_no, mult, value, debug_level);
+	    write_cmd(mq_id,addr, reg_type, reg_no, mult, value, debug_level);
 	    break;	    
 	  case 'S':
 	    
