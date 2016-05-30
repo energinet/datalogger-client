@@ -199,7 +199,12 @@ int asocket_con_rcv(struct asocket_con* sk_con, struct skcmd **rx_msg)
 //    fprintf(stderr, "waiting\n");
 
     while(1){
-        rx_len += recv(sk_con->fd, rx_buf+rx_len, (SOCKET_TC_BUF_LEN-1)-rx_len, 0);
+        retval = recv(sk_con->fd, rx_buf+rx_len, (SOCKET_TC_BUF_LEN-1)-rx_len, 0);
+
+	if(retval < 0)
+		goto out;
+
+	rx_len += retval;
     
         rx_buf[rx_len] = '\0';
 
