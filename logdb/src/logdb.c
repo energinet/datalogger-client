@@ -344,12 +344,18 @@ void logdb_close(struct logdb *db) {
 
 /* Add event */
 int logdb_evt_add(struct logdb *db, int eid, time_t time, const char* value) {
+	int retval;
 	char sql[DB_QUERY_MAX];
 
 	snprintf(sql, DB_QUERY_MAX, "UPDATE %s SET lastlog=%ld WHERE rowid=%d",
 			DB_TABLE_NAME_EVENT_TYPE, time, eid);
 
-	logdb_sql(db, sql, NULL );
+	retval = logdb_sql(db, sql, NULL);
+	if (retval < 0) {
+		PRINT_ERR("ERROR updating table %s", DB_TABLE_NAME_EVENT_TYPE);
+		return retval;
+	}
+
 
 	snprintf(sql, DB_QUERY_MAX, "INSERT INTO %s (eid, time, value) "
 		"VALUES ('%d', '%ld' , '%s')", DB_TABLE_NAME_EVENT_LOG, eid, time,
