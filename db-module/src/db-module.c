@@ -224,6 +224,29 @@ int module_init(struct module_base *module, const char **attr)
 
 }
 
+int module_db_lock(struct logdb *db)
+{
+	if(logdb_lock(db) == SQLITE_BUSY) {
+		sleep(15);
+		return SQLITE_BUSY;
+	}
+	return SQLITE_OK;
+}
+
+int module_db_unlock(struct logdb *db)
+{
+	int timeout = 15;
+	while (timeout > 0) {
+		if(logdb_unlock(db) == SQLITE_OK) {
+			return SQLITE_OK;
+		} else {
+			sleep(15);
+		}
+		timeout--;
+	}
+	return SQLITE_BUSY;
+}
+
 void* module_loop(void *parm)
 {
     struct module_object *this = module_get_struct(parm);
@@ -239,22 +262,24 @@ void* module_loop(void *parm)
 		if(!event)
 			break;
 
-		if(logdb_lock(this->db)==SQLITE_BUSY){
-			sleep(15);
+		if(module_db_lock(this->db) == SQLITE_BUSY)
 			continue;
-		}
 
 		do{
-			PRINT_MVB(base, "logging %p %p %s\n", event, event->type, event->type->name);
-			while(module_write_log(this, event)<0){
-				PRINT_ERR("logging error %s (retry in 15 sec)\n", event->type->name);
-				sleep(15);
-			}
+			PRINT_MVB(base, "logging %p %p %s\n", event,
+				  event->type, event->type->name);
+
+			if(module_write_log(this, event) == SQLITE_OK) {
 			module_event_delete(event);
+			} else {
+				PRINT_ERR
+				    ("logging error %s, unlock db and try agian\n",
+				     event->type->name);
+				break;
+			}
 		}while((event = module_fifo_pop(this, 0))!=NULL);
 
-		logdb_unlock(this->db);
-		
+		module_db_unlock(this->db);
     }
 	
     PRINT_MVB(base, "loop returned");
